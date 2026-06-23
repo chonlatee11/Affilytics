@@ -33,12 +33,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. SQLite opens in WAL mode with busy_timeout set, and tables exist for Product, ProductExtra, PostDraft, PublishedPost, ResultEntry, Page, and Setting
   3. Operator can connect a Facebook Page via OAuth and the access token is stored encrypted at rest (AES-256-GCM), never returned in plaintext by any API
   4. API is reachable only over localhost
-**Plans**: TBD
+**Plans**: 3 plans
 
 Notes: Set `PRAGMA journal_mode=WAL` + `PRAGMA busy_timeout=5000` at connection open (research pitfall #5 — retrofitting needs a migration). Encryption key from `BUN_ENCRYPTION_KEY` env var; fail fast at startup if missing. Use Drizzle ORM on `drizzle-orm/bun-sqlite`.
 
 Plans:
-- [ ] 01-01: TBD
+- [ ] 01-01-PLAN.md — Wave 0: backend Bun scaffold + all 8 VALIDATION.md test files (RED) + FB fetch mock
+- [ ] 01-02-PLAN.md — Wave 1: 7-entity Drizzle schema, WAL+busy_timeout DB client, tracked migration generate+apply, AES-256-GCM crypto, env fail-fast
+- [ ] 01-03-PLAN.md — Wave 2: 127.0.0.1+CORS boot, health route, FB-connect settings (verify→encrypt→store, no token leak, disconnected state), idempotent seed, setup script
 
 ### Phase 2: Product Capture (Shopee)
 **Goal**: Ship a Chrome MV3 extension (WXT) that reads a Shopee product page via config-driven selectors and sends the data through the background service worker to a backend capture endpoint, with graceful handling of missing fields and a URL-paste fallback.
