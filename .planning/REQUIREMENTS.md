@@ -9,9 +9,9 @@ Requirements for the MVP (US-1..US-6 + foundation). Each maps to a roadmap phase
 
 ### Foundation
 
-- [ ] **FOUND-01**: Backend (Bun + Elysia) runs on localhost and exposes a REST API the extension and dashboard can call
-- [ ] **FOUND-02**: SQLite database is initialized with WAL mode + busy_timeout and a schema covering all core entities (Product, ProductExtra, PostDraft, PublishedPost, ResultEntry, Page, Setting)
-- [ ] **FOUND-03**: Extension↔backend and dashboard↔backend communication is restricted to localhost only
+- [x] **FOUND-01**: Backend (Bun + Elysia) runs on localhost and exposes a REST API the extension and dashboard can call
+- [x] **FOUND-02**: SQLite database is initialized with WAL mode + busy_timeout and a schema covering all core entities (Product, ProductExtra, PostDraft, PublishedPost, ResultEntry, Page, Setting)
+- [x] **FOUND-03**: Extension↔backend and dashboard↔backend communication is restricted to localhost only
 
 ### Capture
 
@@ -66,7 +66,7 @@ Requirements for the MVP (US-1..US-6 + foundation). Each maps to a roadmap phase
 
 ### Settings
 
-- [ ] **SET-01**: Operator can connect a Facebook Page via OAuth and the access token is stored encrypted at rest *(FR-M9-1, NFR-4)*
+- [x] **SET-01**: Operator can connect a Facebook Page via OAuth and the access token is stored encrypted at rest *(FR-M9-1, NFR-4)*
 - [ ] **SET-02**: Operator can configure score weights, content tone, daily post limit, and draft mode (Ollama / template) *(FR-M9-2)*
 
 ### Parser Expansion
@@ -113,10 +113,10 @@ Phase mapping is finalized by the roadmapper. Initial proposed mapping:
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
-| FOUND-03 | Phase 1 | Pending |
-| SET-01 | Phase 1 | Pending |
+| FOUND-01 | Phase 1 | Complete |
+| FOUND-02 | Phase 1 | Complete |
+| FOUND-03 | Phase 1 | Complete |
+| SET-01 | Phase 1 | Complete |
 | CAP-01 | Phase 2 | Pending |
 | CAP-02 | Phase 2 | Pending |
 | CAP-03 | Phase 2 | Pending |
