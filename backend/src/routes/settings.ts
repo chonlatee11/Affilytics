@@ -9,6 +9,7 @@
  */
 
 import { Elysia, t } from 'elysia'
+import { desc } from 'drizzle-orm'
 import { db } from '../db/client'
 import { pages, settings } from '../db/schema'
 import { verifyToken } from '../services/fbService'
@@ -38,27 +39,23 @@ export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
       // Step 2: Encrypt the token using AES-256-GCM (T-1-EXPOSE)
       const accessTokenEnc = encrypt(accessToken)
 
-      // Step 3: Upsert the single pages row (single-operator tool — one connected page)
+      // Step 3: Replace the single pages row (single-operator tool — one connected page).
+      // WR-02: A bare onConflictDoUpdate(target: fbPageId) only updates when the SAME page
+      // reconnects; connecting a DIFFERENT page (new fbPageId, fresh UUID id) would INSERT a
+      // second row and break the single-row invariant GET /api/settings relies on. Deleting
+      // first guarantees exactly one row regardless of which page is connected.
+      //
       // WR-06 / TODO(Phase 5 FB Publishing): populate dataAccessExpiresAt so the dashboard
       // can warn the operator before the token silently expires (CLAUDE.md Known Constraint #3:
       // FB tokens expire ~60 days). The manual /me paste flow does not expose expiry; this
       // requires fetching `data_access_expires_at` via debug_token. Stored null until then.
-      await db
-        .insert(pages)
-        .values({
-          fbPageId:            result.pageId,
-          pageName:            result.pageName,
-          accessTokenEnc,
-          dataAccessExpiresAt: null,  // TODO(Phase 5): /me paste flow has no expiry; debug_token needed (WR-06)
-        })
-        .onConflictDoUpdate({
-          target: pages.fbPageId,
-          set: {
-            pageName:            result.pageName,
-            accessTokenEnc,
-            dataAccessExpiresAt: null,  // TODO(Phase 5): see above (WR-06)
-          },
-        })
+      await db.delete(pages)
+      await db.insert(pages).values({
+        fbPageId:            result.pageId,
+        pageName:            result.pageName,
+        accessTokenEnc,
+        dataAccessExpiresAt: null,  // TODO(Phase 5): /me paste flow has no expiry; debug_token needed (WR-06)
+      })
 
       // Step 4: Return confirmation WITHOUT the token (T-1-EXPOSE)
       return {
@@ -82,6 +79,10 @@ export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
   .get('', async () => {
     // Fetch the single page row with EXPLICIT column selection.
     // accessTokenEnc is fetched ONLY to probe decryptability — it is NEVER in the response.
+    // WR-02: connect flows now enforce a single pages row (delete-then-insert), so this read
+    // should only ever see one row. The deterministic `ORDER BY connected_at DESC` is a
+    // defensive measure: if a stray second row ever existed, the most recently connected page
+    // wins instead of relying on SQLite's unspecified row order with a bare `.limit(1)`.
     const pageRows = await db
       .select({
         fbPageId:            pages.fbPageId,
@@ -90,6 +91,7 @@ export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
         dataAccessExpiresAt: pages.dataAccessExpiresAt,
       })
       .from(pages)
+      .orderBy(desc(pages.connectedAt))
       .limit(1)
 
     const page = pageRows[0] ?? null

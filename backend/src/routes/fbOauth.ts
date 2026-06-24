@@ -148,27 +148,24 @@ export const fbOauthRoutes = new Elysia({ prefix: '/api/settings/fb-oauth' })
     // --- Step 4: Encrypt and store (T-1-EXPOSE: pageToken encrypted before persistence) ---
     const accessTokenEnc = encrypt(pageToken)  // AES-256-GCM
 
+    // WR-02: Enforce the single-operator "one connected page" invariant via replace-on-connect.
+    // A bare onConflictDoUpdate(target: fbPageId) only updates when the SAME page reconnects;
+    // connecting a DIFFERENT page (new fbPageId, fresh UUID id) would INSERT a second row and
+    // break the single-row assumption GET /api/settings relies on. Deleting first guarantees
+    // exactly one row regardless of which page is connected (single-operator local tool — safe).
+    //
     // WR-06 / TODO(Phase 5 FB Publishing): the OAuth flow already obtains a real page/user
     // token whose `data_access_expires_at` is retrievable via Graph (debug_token /
     // fields=data_access_expires_at). It is currently discarded, so the dashboard cannot
     // warn before the token silently expires (CLAUDE.md Known Constraint #3). Persist the
     // real expiry here once getPageAccessToken surfaces it.
-    await db
-      .insert(pages)
-      .values({
-        fbPageId: pageId,
-        pageName,
-        accessTokenEnc,
-        dataAccessExpiresAt: null,  // TODO(Phase 5): persist real expiry from debug_token (WR-06)
-      })
-      .onConflictDoUpdate({
-        target: pages.fbPageId,
-        set: {
-          pageName,
-          accessTokenEnc,
-          dataAccessExpiresAt: null,  // TODO(Phase 5): see above (WR-06)
-        },
-      })
+    await db.delete(pages)
+    await db.insert(pages).values({
+      fbPageId: pageId,
+      pageName,
+      accessTokenEnc,
+      dataAccessExpiresAt: null,  // TODO(Phase 5): persist real expiry from debug_token (WR-06)
+    })
 
     // --- Step 5: Return confirmation WITHOUT the token (T-1-EXPOSE) ---
     return {

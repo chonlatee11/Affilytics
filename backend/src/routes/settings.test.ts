@@ -126,6 +126,57 @@ describe('Settings routes — security assertions (SET-01)', () => {
   })
 
   // --------------------------------------------------------------------------
+  // WR-02: single-row invariant — connecting a DIFFERENT page must not leave 2 rows
+  // --------------------------------------------------------------------------
+  describe('WR-02: connecting a different page keeps exactly one pages row', () => {
+    beforeEach(async () => {
+      const { db } = await import('../db/client')
+      const { pages } = await import('../db/schema')
+      await db.delete(pages)
+    })
+
+    test('WR-02: switching pages does not create a second row; latest page wins', async () => {
+      // Connect page A
+      installFbMock({ success: true, pageId: 'page-A', pageName: 'Page A' })
+      const respA = await settingsRoutes.handle(
+        new Request('http://localhost/api/settings/fb-connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageId: 'page-A', accessToken: VALID_TOKEN }),
+        })
+      )
+      expect(respA.status).toBe(200)
+      restoreFetch()
+
+      // Connect a DIFFERENT page B (different fbPageId)
+      installFbMock({ success: true, pageId: 'page-B', pageName: 'Page B' })
+      const respB = await settingsRoutes.handle(
+        new Request('http://localhost/api/settings/fb-connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pageId: 'page-B', accessToken: VALID_TOKEN }),
+        })
+      )
+      expect(respB.status).toBe(200)
+
+      // The pages table must hold exactly ONE row (the single-operator invariant)
+      const { db } = await import('../db/client')
+      const { pages } = await import('../db/schema')
+      const rows = await db.select({ fbPageId: pages.fbPageId }).from(pages)
+      expect(rows.length).toBe(1)
+      expect(rows[0].fbPageId).toBe('page-B')
+
+      // GET /api/settings must surface the most recently connected page
+      const getResp = await settingsRoutes.handle(
+        new Request('http://localhost/api/settings', { method: 'GET' })
+      )
+      const body = await getResp.json() as { fbConnected: boolean; pageName: string | null }
+      expect(body.fbConnected).toBe(true)
+      expect(body.pageName).toBe('Page B')
+    })
+  })
+
+  // --------------------------------------------------------------------------
   // (c) T-1-DISCONNECT: undecryptable stored token → fbConnected: false, no crash
   // --------------------------------------------------------------------------
   describe('T-1-DISCONNECT: undecryptable token returns disconnected state without crash', () => {

@@ -249,6 +249,47 @@ describe('fbOauth routes — GET /api/settings/fb-oauth/callback (happy path)', 
   })
 })
 
+describe('fbOauth routes — WR-02 single-row invariant', () => {
+  afterEach(async () => {
+    mock.restore()
+    await db.delete(pages)
+  })
+
+  test('WR-02: connecting a DIFFERENT page replaces the row instead of inserting a second', async () => {
+    // --- Connect page A ---
+    const authA = await testApp.handle(
+      new Request('http://localhost/api/settings/fb-oauth/authorize')
+    )
+    const stateA = new URL(authA.headers.get('location') ?? '').searchParams.get('state')!
+    mockGraphOAuth({
+      accounts: { data: [{ id: 'page-A', name: 'Page A', access_token: 'token-A' }] },
+    })
+    const cbA = await testApp.handle(
+      new Request(`http://localhost/api/settings/fb-oauth/callback?code=${MOCK_CODE}&state=${stateA}`)
+    )
+    expect(cbA.status).toBe(200)
+    mock.restore()
+
+    // --- Connect a DIFFERENT page B (new state, different fbPageId) ---
+    const authB = await testApp.handle(
+      new Request('http://localhost/api/settings/fb-oauth/authorize')
+    )
+    const stateB = new URL(authB.headers.get('location') ?? '').searchParams.get('state')!
+    mockGraphOAuth({
+      accounts: { data: [{ id: 'page-B', name: 'Page B', access_token: 'token-B' }] },
+    })
+    const cbB = await testApp.handle(
+      new Request(`http://localhost/api/settings/fb-oauth/callback?code=${MOCK_CODE}&state=${stateB}`)
+    )
+    expect(cbB.status).toBe(200)
+
+    // The pages table must hold exactly ONE row — the most recently connected page.
+    const rows = await db.select({ fbPageId: pages.fbPageId }).from(pages)
+    expect(rows.length).toBe(1)
+    expect(rows[0].fbPageId).toBe('page-B')
+  })
+})
+
 describe('fbOauth routes — GET /api/settings/fb-oauth/callback (state mismatch)', () => {
   afterEach(async () => {
     mock.restore()
