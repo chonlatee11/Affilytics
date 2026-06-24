@@ -17,16 +17,28 @@ const ENV_FILE = join(import.meta.dir, '..', '.env')
 const KEY_NAME = 'BUN_ENCRYPTION_KEY'
 
 function main(): void {
-  // Check if .env already contains BUN_ENCRYPTION_KEY — never overwrite (D-03)
+  // Check if .env already contains a BUN_ENCRYPTION_KEY line — never overwrite or
+  // append a duplicate (D-03, WR-05). Detection is on the KEY line existing at all,
+  // regardless of value: an empty `BUN_ENCRYPTION_KEY=` line (e.g. copied from
+  // .env.example) must NOT trigger appending a second key, which would leave two
+  // entries and make encryption/decryption depend on dotenv load order.
   if (existsSync(ENV_FILE)) {
     const contents = readFileSync(ENV_FILE, 'utf8')
-    const hasKey = contents
+    const keyLines = contents
       .split('\n')
-      .some((line) => line.startsWith(`${KEY_NAME}=`) && line.split('=')[1]?.trim().length > 0)
+      .filter((line) => line.startsWith(`${KEY_NAME}=`))
 
-    if (hasKey) {
-      console.log(`${KEY_NAME} is already set in .env — nothing to do.`)
-      console.log('If you need to rotate the key, edit .env manually (existing encrypted data will be invalidated).')
+    if (keyLines.length > 0) {
+      const hasValue = keyLines.some(
+        (line) => (line.split('=')[1] ?? '').trim().length > 0
+      )
+      if (hasValue) {
+        console.log(`${KEY_NAME} is already set in .env — nothing to do.`)
+        console.log('If you need to rotate the key, edit .env manually (existing encrypted data will be invalidated).')
+      } else {
+        console.log(`${KEY_NAME} exists but is empty in .env — fill it in manually (do not append a second key).`)
+        console.log('Generate one with: bun -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"')
+      }
       process.exit(0)
     }
   }
