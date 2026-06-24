@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+# Note: bun.lock is committed for reproducible installs (bun.lockb was the old binary format)
+
+# Environment variables (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# SQLite database files (never commit DB or WAL journal)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Build outputs
+dist/
+.next/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.idea/
+.vscode/
+*.swp
+*.swo

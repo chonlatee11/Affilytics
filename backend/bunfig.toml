@@ -1,0 +1,8 @@
+[install]
+# Use exact versions from package.json
+exact = false
+
+[test]
+# bun test discovers *.test.ts automatically — no extra config needed
+# Coverage and timeout defaults are fine for Phase 1
+timeout = 30000
