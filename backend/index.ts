@@ -4,11 +4,12 @@
  * Boot order (RESEARCH § System Architecture Diagram):
  *   1. requireEncryptionKey() — fail-fast if BUN_ENCRYPTION_KEY missing (D-03, T-1-KEY)
  *   2. import db — opening it sets PRAGMAs (WAL + busy_timeout) before drizzle() wraps
- *   3. migrate() — apply tracked SQL migrations synchronously
- *   4. seedDefaultSettings() — idempotent default settings row (D-08)
- *   5. Elysia app on 127.0.0.1:3000 — LAN-unreachable (FOUND-03, T-1-LAN)
- *   6. CORS allowlist: localhost dashboard + chrome-extension origin (T-1-CORS)
- *   7. .listen() — only when run as main entry; import-only does not double-bind
+ *      and applies migrations via openDatabase() (single migrate path — no WR-01 double-migrate)
+ *   3. seedDefaultSettings() — idempotent default settings row (D-08)
+ *   4. Elysia app on 127.0.0.1:3000 — LAN-unreachable (FOUND-03, T-1-LAN)
+ *   5. CORS allowlist: localhost dashboard + chrome-extension origin (T-1-CORS)
+ *   6. .listen() — only when run as main entry (import.meta.main); importing this module
+ *      in tests does NOT bind port 3000.
  *
  * FOUND-01: GET /health returns 200.
  * FOUND-03: bound to 127.0.0.1 only (not 0.0.0.0).
@@ -24,18 +25,15 @@ import swagger from '@elysiajs/swagger'
 // This MUST be the first runtime call — before any DB or crypto operations.
 requireEncryptionKey()
 
-// Step 2: Import db singleton (opening it runs PRAGMAs on the raw connection)
+// Step 2: Import db singleton (opening it runs PRAGMAs + applies migrations via openDatabase())
+// Migrations are applied inside openDatabase() — single source of truth; no second migrate() call here (WR-01 resolved).
 import { db } from './src/db/client'
 
-// Step 3: Apply tracked migrations synchronously
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
-migrate(db, { migrationsFolder: './drizzle' })
-
-// Step 4: Idempotent default settings seed
+// Step 3: Idempotent default settings seed
 import { seedDefaultSettings } from './seed'
 await seedDefaultSettings()
 
-// Step 5-7: Create Elysia app bound to 127.0.0.1 (Pitfall 4: never 0.0.0.0)
+// Steps 4-6: Create Elysia app bound to 127.0.0.1 (Pitfall 4: never 0.0.0.0)
 import { healthRoutes } from './src/routes/health'
 import { settingsRoutes } from './src/routes/settings'
 
@@ -63,10 +61,12 @@ export const app = new Elysia({
   // Routes
   .use(healthRoutes)
   .use(settingsRoutes)
-  // Listen — only when run as main entry point (bun run src/index.ts)
-  // When imported by tests, .listen() would bind the port — we guard with Bun.main check
-  .listen(3000)
 
-console.log(
-  `Listening on http://${app.server?.hostname}:${app.server?.port}`
-)
+// Listen only when run as the main entry point (bun run index.ts).
+// When imported by tests, this block is skipped — no accidental port 3000 bind.
+if (import.meta.main) {
+  app.listen(3000)
+  console.log(
+    `Listening on http://${app.server?.hostname}:${app.server?.port}`
+  )
+}
