@@ -1,276 +1,191 @@
 ---
 phase: 01-backend-foundation
-reviewed: 2026-06-24T13:51:11Z
+reviewed: 2026-06-24T00:00:00Z
 depth: standard
-files_reviewed: 9
+files_reviewed: 36
 files_reviewed_list:
-  - backend/index.ts
+  - backend/bunfig.toml
+  - backend/bun.lock
+  - backend/drizzle/0000_lyrical_the_initiative.sql
+  - backend/drizzle.config.ts
+  - backend/drizzle/meta/0000_snapshot.json
+  - backend/drizzle/meta/_journal.json
+  - backend/.env.example
   - backend/env.ts
+  - backend/.gitignore
+  - backend/index.ts
+  - backend/package.json
+  - backend/README.md
+  - backend/scripts/setup.ts
+  - backend/seed.ts
   - backend/src/db/client.ts
-  - backend/src/routes/fbOauth.ts
+  - backend/src/db/migrate.ts
+  - backend/src/db/pragma.test.ts
+  - backend/src/db/schema.test.ts
+  - backend/src/db/schema.ts
+  - backend/src/index.test.ts
   - backend/src/routes/fbOauth.test.ts
-  - backend/src/services/fbService.ts
-  - backend/src/services/fbService.test.ts
+  - backend/src/routes/fbOauth.ts
+  - backend/src/routes/health.test.ts
+  - backend/src/routes/health.ts
+  - backend/src/routes/settings.test.ts
+  - backend/src/routes/settings.ts
   - backend/src/seed.test.ts
   - backend/src/server.test.ts
+  - backend/src/services/cryptoService.test.ts
+  - backend/src/services/cryptoService.ts
+  - backend/src/services/fbService.test.ts
+  - backend/src/services/fbService.ts
+  - backend/test/helpers/fbMock.ts
+  - backend/tsconfig.json
 findings:
-  critical: 2
-  warning: 5
-  info: 2
-  total: 9
+  critical: 1
+  warning: 6
+  info: 5
+  total: 12
 status: issues_found
 ---
 
-# Phase 01: Gap-Closure Code Review Report
+# Phase 1: Code Review Report
 
-**Reviewed:** 2026-06-24T13:51:11Z
+**Reviewed:** 2026-06-24
 **Depth:** standard
-**Files Reviewed:** 9
+**Files Reviewed:** 36
 **Status:** issues_found
 
 ## Summary
 
-This review covers the gap-closure implementation for Phase 01: the revised boot sequence (`index.ts`), fail-fast env validation (`env.ts`), in-memory temp-file DB fix (`client.ts`), the new Facebook OAuth Page-connect flow (`fbOauth.ts` + `fbService.ts`), and their accompanying tests (`fbOauth.test.ts`, `fbService.test.ts`, `seed.test.ts`, `server.test.ts`).
+Reviewed the backend foundation: Elysia bootstrap, SQLite/Drizzle client, schema + migration, AES-256-GCM crypto service, Facebook token verify/OAuth flows, settings + health routes, and supporting config. Overall the security-sensitive code (crypto, token redaction, CORS, 127.0.0.1 bind, CSRF state) is implemented carefully and the threat-model annotations are mostly honored.
 
-The AES-256-GCM encryption, CSRF state machine, token non-exposure in HTTP responses, `import.meta.main` guard, WAL/PRAGMA ordering, and temp-file cleanup are all correctly implemented. The `pendingStates` replay prevention is correct. The `requireEncryptionKey()` fail-fast and `requireFbOAuthConfig()` lazy-read design are sound.
-
-Two critical findings: `seed.test.ts` sets `DATABASE_URL` inside `beforeAll` but the `db` singleton is already initialized by a static top-level import — the test may silently operate on the real database file. `exchangeCodeForToken` sends `client_secret` in a GET URL query string, violating RFC 6749 §2.3.1 and risking the secret appearing in Facebook's server-side access logs and potentially in Bun's `fetch` error messages that are written to `console.error`.
-
----
+The most serious defect is that **SQLite foreign-key enforcement is never enabled**, so all the `FOREIGN KEY (...) REFERENCES` constraints declared across six tables are silently inert — orphaned/dangling references can be written, which is a data-integrity (data-corruption) risk for every downstream phase that relies on these relationships. Several warnings concern config/code drift (hardcoded port vs documented `PORT`, `exact = false` contradicting its comment), a CSRF-state memory leak, and a migration-error swallow that can hide real failures in production.
 
 ## Critical Issues
 
-### CR-01: `seed.test.ts` — `DATABASE_URL` set in `beforeAll` after static import already initialized the `db` singleton
+### CR-01: Foreign-key constraints are never enforced — `PRAGMA foreign_keys` left OFF
 
-**File:** `backend/src/seed.test.ts:15`
-**Issue:** Line 15 is a static top-level import of `../seed`. Importing `seed.ts` triggers its module-level `import { db } from './src/db/client'` (seed.ts line 11), which evaluates `client.ts` line 126: `export const db = openDatabase()`. At that instant `process.env.DATABASE_URL` has NOT been set — `beforeAll` on line 19 runs only after all module-level code completes. Consequently the DB singleton opens `data/affilytics.db` (the real production database file) instead of the temp path that `:memory:` resolves to. When tests later call `await import('./db/client')` they get the cached singleton pointing at the real file.
+**File:** `backend/src/db/client.ts:62-63`
+**Issue:** SQLite ships with `PRAGMA foreign_keys = OFF` by default, and the flag is **per-connection** (like `busy_timeout`). `openDatabase()` sets `journal_mode=WAL` and `busy_timeout=5000` but never sets `PRAGMA foreign_keys = ON`. As a result, every `FOREIGN KEY` clause in the migration (`product_extras.product_id`, `post_drafts.product_id`, `published_posts.draft_id`, `result_entries.product_id`, etc.) is declared but **not enforced**. The application can insert a `post_drafts` row referencing a non-existent product, or delete a product that still has dependent rows, with no error — producing orphaned/dangling references. This is a silent data-integrity defect that will surface as corrupt joins in Phases 3-6. The schema comments and migration imply referential integrity that does not actually exist at runtime.
+**Fix:**
+```ts
+const sqlite = new Database(resolvedPath)
 
-Concrete risks:
-1. Tests that call `seedDefaultSettings()` twice write rows to the real database.
-2. Test assertions see production data contaminating results.
-3. Tests are non-deterministic across environments depending on what `data/affilytics.db` contains.
-
+sqlite.exec('PRAGMA journal_mode = WAL')
+sqlite.exec('PRAGMA busy_timeout = 5000')
+sqlite.exec('PRAGMA foreign_keys = ON')   // per-connection; must be set on every Database()
 ```
-// Current broken order (seed.test.ts):
-import { seedDefaultSettings } from '../seed'   // ← triggers db open with wrong path
-import { settings } from './db/schema'
-
-describe('...', () => {
-  beforeAll(() => {
-    process.env.DATABASE_URL = ':memory:'   // ← TOO LATE, db already open
-  })
-```
-
-**Fix:** Move all `process.env` assignments to module level, before any static imports that reach `client.ts`. This is already the pattern used correctly in `fbOauth.test.ts` (lines 26-30):
-
-```typescript
-// seed.test.ts — CORRECT ORDER
-
-// 1. Set env vars at module scope BEFORE any db-touching import
-process.env.BUN_ENCRYPTION_KEY = 'a'.repeat(64)
-process.env.DATABASE_URL = ':memory:'
-
-// 2. Now safe to import modules that transitively open the db
-import { test, expect, describe } from 'bun:test'
-import { seedDefaultSettings } from '../seed'
-import { settings } from './db/schema'
-
-// beforeAll is no longer needed for env setup
-```
-
----
-
-### CR-02: `fbService.ts` — `client_secret` sent in GET URL query string (RFC 6749 §2.3.1 violation)
-
-**File:** `backend/src/services/fbService.ts:140-150`
-**Issue:** `exchangeCodeForToken` appends `client_secret` to a URL query string and issues a GET request:
-
-```typescript
-const params = new URLSearchParams({
-  client_id: appId,
-  client_secret: appSecret,   // ← FB_APP_SECRET in URL query string
-  redirect_uri: redirectUri,
-  code,
-})
-const url = `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
-const response = await fetch(url)   // ← GET with secret in URL
-```
-
-RFC 6749 §2.3.1 states: "The authorization server MUST NOT include the client credentials in the request-URI." Beyond the spec violation, the constructed URL containing `FB_APP_SECRET` appears in:
-
-1. **Facebook's own server-side access logs** — all GET URLs are logged at the TLS terminator.
-2. **Bun's `fetch` error messages** — some runtimes include the full request URL in network error messages (e.g., `"Failed to connect to graph.facebook.com:443 …?client_secret=SECRET…"`). Line 177 logs `err.message` via `console.error`, so any such error writes the secret to the server's log stream.
-3. **Any proxy or CDN** between the backend and Facebook (not applicable in the expected localhost deployment, but it represents a latent risk if deployment topology changes).
-
-The comment on line 142 (`// T-1-SECRET: used in URL but never logged`) is only partially correct: the URL itself is never logged directly, but `err.message` may contain it.
-
-**Fix:** Use POST with `application/x-www-form-urlencoded` body — which Facebook Graph API fully supports for this endpoint:
-
-```typescript
-export async function exchangeCodeForToken(code: string): Promise<ExchangeCodeResult> {
-  const { appId, appSecret, redirectUri } = requireFbOAuthConfig()
-
-  const url = `https://graph.facebook.com/v22.0/oauth/access_token`
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: appId,
-        client_secret: appSecret,   // stays in POST body, not URL
-        redirect_uri: redirectUri,
-        code,
-      }).toString(),
-    })
-    // ... rest unchanged
-```
-
-The mock in `fbService.test.ts` matches on `url.includes('oauth/access_token')` and is method-agnostic — no test changes are required.
-
----
+Add a test (mirroring `pragma.test.ts`) asserting `PRAGMA foreign_keys` returns `1`, and a test that inserting a `post_drafts` row with a bogus `product_id` throws.
 
 ## Warnings
 
-### WR-01: `fbOauth.ts` — FB user-denial OAuth error params are silently ignored; state is consumed regardless
+### WR-01: Hardcoded port 3000 ignores documented `PORT` env var
 
-**File:** `backend/src/routes/fbOauth.ts:98-109`
-**Issue:** When the operator denies the Facebook permission dialog, Facebook redirects to the callback with `?error=access_denied&error_reason=user_denied&error_description=...&state=<state>` — no `code` parameter. The current handler:
-
-1. Finds the valid state → consumes it (line 104)
-2. Checks `!code` → returns `{ error: 'missing_code' }` (line 107-109)
-
-The state is correctly consumed (preventing replay), but `query.error` / `query.error_description` supplied by Facebook are never read. The operator receives a generic `missing_code` response with no indication of whether they were denied, cancelled, or hit a network problem. The state is burned on user-denial, requiring a full restart from `/authorize` with no explanation.
-
-**Fix:** Check the Facebook-supplied error parameters before the code check:
-
-```typescript
-// After pendingStates.delete(state) — still inside the callback handler:
-const fbOAuthError = query.error as string | undefined
-if (fbOAuthError) {
-  const detail = (query.error_description as string | undefined) ?? fbOAuthError
-  set.status = 400
-  return { error: 'fb_oauth_denied', detail }
-}
-
-if (!code) {
-  set.status = 400
-  return { error: 'missing_code' }
+**File:** `backend/index.ts:44,70`
+**Issue:** `.env.example:18` documents `# PORT=3000` as the configurable listen port ("Optional: Port to listen on (default: 3000)"), but `index.ts` hardcodes `3000` twice — in the `serve` config and again in `app.listen(3000)`. Setting `PORT` in `.env` has no effect, so the documented contract is broken. The duplicate `3000` (once in `serve.port`, once in `.listen()`) is also redundant/confusing.
+**Fix:**
+```ts
+const PORT = Number(process.env.PORT ?? 3000)
+export const app = new Elysia({ serve: { hostname: '127.0.0.1', port: PORT } })
+  // ...
+if (import.meta.main) {
+  app.listen(PORT)
+  console.log(`Listening on http://${app.server?.hostname}:${app.server?.port}`)
 }
 ```
 
----
+### WR-02: Migration error-swallow can hide real failures in production
 
-### WR-02: `fbOauth.ts` — `pendingStates` Set is unbounded with no TTL or max-size cap
-
-**File:** `backend/src/routes/fbOauth.ts:37`
-**Issue:** Every call to `GET /api/settings/fb-oauth/authorize` adds a 32-hex-char state to `pendingStates`. States are removed only on successful callback. Abandoned or incomplete OAuth flows (browser closed, operator navigated away, server restart test, callback returns 4xx) accumulate states indefinitely. The code comment acknowledges the absence of TTL and claims it is correct ("state_mismatch → retry"), but does not address the unbounded growth.
-
-For a single-operator self-hosted tool the practical risk is low. However, states from stale browser sessions or integration test runs can accumulate across the lifetime of the process.
-
-**Fix:** Replace the `Set` with a `Map` keyed by state and valued by expiry timestamp:
-
-```typescript
-const pendingStates = new Map<string, number>()  // state → Date.now() expiry
-const STATE_TTL_MS = 10 * 60 * 1000             // 10 minutes
-
-// In /authorize:
-pendingStates.set(state, Date.now() + STATE_TTL_MS)
-
-// In /callback validation:
-const expiry = pendingStates.get(state ?? '')
-if (!state || expiry === undefined || Date.now() > expiry) {
-  set.status = 400
-  return { error: 'state_mismatch' }
+**File:** `backend/src/db/client.ts:86-102`
+**Issue:** `openDatabase()` wraps `migrate()` in a try/catch that silently swallows errors whose message matches `no such file`, `ENOENT`, `Cannot find module`, or `Can't find meta/_journal.json`. The intent (allow import before migrations are generated) is reasonable for early dev, but the migration files now exist and are committed. String-matching on error messages is brittle: a genuine production failure (e.g., a referenced migration SQL file deleted, or a transient FS error containing "ENOENT") would be silently swallowed, leaving the DB with **no tables** and the server booting "successfully" into a broken state. Boot-time schema failure should be loud.
+**Fix:** Now that `drizzle/` is committed, remove the swallow in production paths, or gate it so it only applies in test/`:memory:` contexts:
+```ts
+try {
+  migrate(db, { migrationsFolder: './drizzle' })
+} catch (err) {
+  // Only tolerate "migrations not generated yet" in test/in-memory contexts.
+  if (!isMemory) throw err
+  const message = err instanceof Error ? err.message : String(err)
+  if (!/no such file|ENOENT|Cannot find module|_journal\.json/.test(message)) throw err
 }
-pendingStates.delete(state)
 ```
 
----
+### WR-03: `migrate.ts` runs migrations a second time as an import side effect
 
-### WR-03: `fbService.ts` — `console.error` in `catch` blocks logs `err.message` which may contain the request URL
+**File:** `backend/src/db/migrate.ts:13-20`
+**Issue:** Importing `./client` already runs `openDatabase()` (which calls `migrate()`), and then `migrate.ts` calls `migrate(db, ...)` again at module top level as a side effect. The header comment claims it is "Imported by src/index.ts at boot" but `index.ts` does **not** import it (it relies on the `client.ts` single migrate path, per the WR-01-resolved comment). So this file is effectively dead except as the `migrate:run` script — where it double-migrates (open → migrate, then migrate again). Drizzle's migrator is idempotent so it is not fatal, but it is misleading duplicate work and the comment is inaccurate.
+**Fix:** Either delete `migrate.ts` and point the `migrate:run` script at a no-op import of `client.ts`, or remove the redundant explicit `migrate()` call and the inaccurate "Imported by src/index.ts" comment.
 
-**File:** `backend/src/services/fbService.ts:175-178`
-**Issue:** The `catch` block for `exchangeCodeForToken` logs the stringified `err.message`:
+### WR-04: CSRF `pendingStates` set grows unbounded (no TTL / no eviction)
 
-```typescript
-console.error(`fbService.exchangeCodeForToken: network/parse error: ${message}`)
+**File:** `backend/src/routes/fbOauth.ts:37,63`
+**Issue:** Every `GET /authorize` call adds a 16-byte hex state to the in-process `pendingStates` Set, but states are only ever removed when a matching `/callback` consumes them (line 104). Any `/authorize` that is never followed by a successful callback (operator abandons the flow, closes the tab, FB denies) leaves the state in the Set forever. Over time this is unbounded memory growth and, more importantly, never-expiring CSRF tokens remain valid indefinitely, weakening the single-use/replay protection's intent. The code comment explicitly acknowledges "An optional TTL is not implemented."
+**Fix:** Store an issue timestamp and reject/evict states older than a short window (e.g., 10 minutes):
+```ts
+const pendingStates = new Map<string, number>()  // state -> issuedAt ms
+const STATE_TTL_MS = 10 * 60 * 1000
+// on authorize: pendingStates.set(state, Date.now())
+// on callback: const ts = pendingStates.get(state); pendingStates.delete(state)
+//   if (!ts || Date.now() - ts > STATE_TTL_MS) -> 400 state_mismatch
 ```
 
-When `fetch` fails (DNS, TLS, timeout), some runtimes include the full request URL in the error message text (e.g., `"Failed to fetch: https://graph.facebook.com/…?client_secret=SECRET"`). Since the current implementation (see CR-02) puts `client_secret` in the URL query string, this log line can write `FB_APP_SECRET` to stdout/stderr in plaintext.
+### WR-05: `setup.ts` key-detection appends a duplicate key for an empty-value line
 
-**Fix:** This finding is fully mitigated by fixing CR-02 (moving `client_secret` to the POST body removes it from the URL). Once fixed, `err.message` cannot contain the secret. No additional change needed beyond CR-02.
-
----
-
-### WR-04: `index.ts` — `db` imported only for boot-ordering side-effects with no explicit marker
-
-**File:** `backend/index.ts:30`
-**Issue:** `import { db } from './src/db/client'` is the only reference to `db` in `index.ts`. The variable is never used. The import exists to guarantee the singleton is initialized (and migrations are applied) before any route handler could invoke a database operation. This is a valid technique but it is fragile: a future developer running a linter or IDE "remove unused imports" action will delete this line, breaking the boot ordering guarantee silently. The comment on line 29 partially explains the intent but does not prevent the removal.
-
-**Fix:** Change to an explicit side-effect import and add a warning comment:
-
-```typescript
-// Side-effect import: ensures DB singleton is opened and migrations applied
-// before the first route handler executes. DO NOT remove.
-import './src/db/client'
+**File:** `backend/scripts/setup.ts:23-25,38-41`
+**Issue:** The "already set" check requires both `startsWith(\`${KEY_NAME}=\`)` AND a non-empty trimmed value. If `.env` contains `BUN_ENCRYPTION_KEY=` with an empty value (e.g., copied verbatim from `.env.example:12`, which ships exactly that line), `hasKey` is `false`, so `appendFileSync` adds a **second** `BUN_ENCRYPTION_KEY=<generated>` line. The file now has two `BUN_ENCRYPTION_KEY` entries; which one `process.env` exposes depends on dotenv/Bun load order, so the operator can silently end up encrypting with one key and (after an edit) decrypting with another — corrupting stored tokens. Also, `.split('=')[1]?.trim().length > 0` evaluates `undefined > 0` for value-less lines, which is a latent strict-mode comparison smell.
+**Fix:** Detect any existing `BUN_ENCRYPTION_KEY=` line regardless of value; refuse to append a duplicate, and instruct the operator to fill an empty one manually:
+```ts
+const keyLines = contents.split('\n').filter(l => l.startsWith(`${KEY_NAME}=`))
+if (keyLines.length > 0) {
+  const hasValue = keyLines.some(l => (l.split('=')[1] ?? '').trim().length > 0)
+  console.log(hasValue
+    ? `${KEY_NAME} is already set — nothing to do.`
+    : `${KEY_NAME} exists but is empty — fill it in manually (do not append a second key).`)
+  process.exit(0)
+}
 ```
 
-This removes the unused named binding while preserving the side-effect.
+### WR-06: GET /api/settings always reports `dataAccessExpiresAt: null` — silent token expiry
 
----
-
-### WR-05: `index.ts` root-level files excluded from `tsconfig.json` — no TypeScript checking
-
-**File:** `backend/tsconfig.json:15` / `backend/index.ts`, `backend/env.ts`, `backend/seed.ts`
-**Issue:** `tsconfig.json` `include` is `["src/**/*", "scripts/**/*", "test/**/*"]`. The three root-level files `index.ts`, `env.ts`, and `seed.ts` are not in any of these globs. Running `tsc --noEmit` does not check these files for type errors. These files contain critical logic: the fail-fast key validation (`env.ts`), the application entry point (`index.ts`), and database seeding (`seed.ts`). A type error in any of them (wrong return type on `requireEncryptionKey()`, missing `await` on `seedDefaultSettings()`, etc.) will not be caught by CI type-checking.
-
-**Fix:** Add root-level TypeScript files to the include glob:
-
-```json
-"include": ["*.ts", "src/**/*", "scripts/**/*", "test/**/*"]
-```
-
----
+**File:** `backend/src/routes/settings.ts:48,63` and `backend/src/routes/fbOauth.ts:138,145`
+**Issue:** Both the manual paste flow and the OAuth flow hardcode `dataAccessExpiresAt: null` when storing the page. The OAuth callback already obtains a real user/page token whose expiry is retrievable via Graph (`debug_token` / `fields=data_access_expires_at`), but it is discarded. Storing `null` unconditionally means the operator gets **no warning before a token silently expires** (CLAUDE.md "Known Constraints #3: FB token expires every ~60 days"). The schema column exists specifically to support this, so the always-null behavior defeats its purpose: the dashboard reads "connected" right up until publishing fails. Acceptable only if the deferral is explicitly tracked.
+**Fix:** Add a code TODO referencing the phase that will populate it; ideally fetch `data_access_expires_at` during `getPageAccessToken` and persist it so the dashboard can warn ahead of expiry.
 
 ## Info
 
-### IN-01: `server.test.ts` — `app.listen(3000)` in `beforeAll` has no guard against already-bound port
+### IN-01: `bunfig.toml` `exact = false` contradicts its own comment
 
-**File:** `backend/src/server.test.ts:21`
-**Issue:** `beforeAll` calls `app.listen(3000)` unconditionally. If `bun test` runs `server.test.ts` in the same worker process as another test file that already bound port 3000 (possible if test isolation changes or if the module cache contains an already-listening `app` from another file's `beforeAll`), this call will conflict. There is no check for `app.server` being already set before calling `listen`:
+**File:** `backend/bunfig.toml:2-3`
+**Issue:** The comment reads `# Use exact versions from package.json` but the setting is `exact = false`, which is the opposite (allows range resolution). The Technology Stack guide pins exact versions; this drift could let `bun install` resolve non-pinned versions for transitive ranges.
+**Fix:** Set `exact = true` to match the comment and the pinned-version intent, or fix the comment to say ranges are allowed.
 
-```typescript
-const { app } = await import('../index')
-app.listen(3000)   // ← no guard: what if already listening?
+### IN-02: Unused `dataAccessExpiresAt: undefined` field on `VerifyTokenResult`
+
+**File:** `backend/src/services/fbService.ts:21,111`
+**Issue:** `VerifyTokenResult.dataAccessExpiresAt` is typed as `undefined` and always set to `undefined`. It carries no information and is never read by `settings.ts` (which hardcodes `null`). Dead field.
+**Fix:** Remove the field from the interface and the return, or make it a real `number | null` once WR-06 is addressed.
+
+### IN-03: Redundant duplicate import in `health.ts`
+
+**File:** `backend/src/routes/health.ts:10-11`
+**Issue:** `db` and `rawSqlite` are imported from `../db/client` in two separate `import` statements. Cosmetic.
+**Fix:**
+```ts
+import { db, rawSqlite } from '../db/client'
 ```
 
-**Fix:** Guard the listen call with a check on `app.server`:
+### IN-04: `JSON.parse(settingsRow.scoreWeights)` is unguarded
 
-```typescript
-const { app } = await import('../index')
-if (!app.server) {
-  app.listen(3000)
-}
-```
+**File:** `backend/src/routes/settings.ts:118-120`
+**Issue:** `scoreWeights` is stored as a JSON string; `GET /api/settings` calls `JSON.parse` on it directly. If the column is ever manually edited or corrupted to invalid JSON, this throws and returns a 500 for the entire settings endpoint. Low likelihood in Phase 1 (only the seed writes it), hence Info.
+**Fix:** Wrap in try/catch returning `null` on parse failure, consistent with the resilient "never crash" posture used in `decrypt()`.
+
+### IN-05: `tsconfig.json` does not include the root boot files
+
+**File:** `backend/tsconfig.json:15-16`
+**Issue:** `include` lists `src/**/*`, `scripts/**/*`, `test/**/*` but not the root-level `index.ts`, `seed.ts`, `env.ts`, or `drizzle.config.ts`. Bun runs them regardless, but `tsc --noEmit` type-checking (if added to CI) would not cover the entry point or env-validation module — the two most boot-critical files.
+**Fix:** Add `index.ts`, `seed.ts`, `env.ts` to `include` (or include `*.ts`) so type-checking covers the boot path.
 
 ---
 
-### IN-02: `fbOauth.ts` — Scopes include `business_management` which is not needed for Phase 1 Dev-Mode page-connect
-
-**File:** `backend/src/routes/fbOauth.ts:45`
-**Issue:** `FB_SCOPES` includes `business_management`. For the Phase 1 Dev-Mode flow the only required scopes are `pages_show_list` (enumerate operator's pages) and `pages_read_engagement` (read metrics). `business_management` is a sensitive scope that requires App Review for broad access and may trigger additional permission dialogs for the operator. Including it unnecessarily increases the permission surface.
-
-**Fix:** Remove `business_management` from the scope string for Phase 1:
-
-```typescript
-const FB_SCOPES = 'pages_show_list,pages_read_engagement'
-```
-
-Add it back in Phase 5 (Facebook Publishing) when `pages_manage_posts` and related scopes are added.
-
----
-
-_Reviewed: 2026-06-24T13:51:11Z_
+_Reviewed: 2026-06-24_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
