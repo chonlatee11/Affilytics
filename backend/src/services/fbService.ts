@@ -8,7 +8,7 @@
  *
  * Endpoints:
  * - GET /v22.0/me?fields=id,name&access_token=<token>  (verifyToken — manual paste flow)
- * - GET /v22.0/oauth/access_token  (exchangeCodeForToken — OAuth flow)
+ * - POST /v22.0/oauth/access_token  (exchangeCodeForToken — OAuth flow, body not URL)
  * - GET /v22.0/me/accounts  (getPageAccessToken — OAuth flow)
  */
 
@@ -125,29 +125,36 @@ export async function verifyToken(
 /**
  * exchangeCodeForToken(code) — exchanges an OAuth authorization code for a user access token.
  *
- * Calls GET https://graph.facebook.com/v22.0/oauth/access_token with:
- *   client_id, client_secret (from requireFbOAuthConfig()), redirect_uri, code
+ * Calls POST https://graph.facebook.com/v22.0/oauth/access_token with
+ * application/x-www-form-urlencoded body containing client_id, client_secret,
+ * redirect_uri, and code. Using POST keeps client_secret out of the URL so it
+ * never appears in server-side access logs or in fetch error messages
+ * (RFC 6749 §2.3.1). Facebook Graph API fully supports POST on this endpoint.
  *
  * Returns { ok:true, userToken } on success.
  * Returns { ok:false, error } on Graph error or missing access_token — never throws.
  *
- * T-1-SECRET: FB_APP_SECRET is read from env but NEVER logged or returned.
+ * T-1-SECRET: FB_APP_SECRET is in the POST body, NEVER in the URL, NEVER logged or returned.
  * T-1-EXPOSE: The authorization code and user token are NEVER logged.
  */
 export async function exchangeCodeForToken(code: string): Promise<ExchangeCodeResult> {
   const { appId, appSecret, redirectUri } = requireFbOAuthConfig()
 
-  const params = new URLSearchParams({
-    client_id: appId,
-    client_secret: appSecret,  // T-1-SECRET: used in URL but never logged
-    redirect_uri: redirectUri,
-    code,                       // T-1-EXPOSE: code never logged
-  })
-
-  const url = `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
+  // T-1-SECRET: client_secret goes into the POST body, NOT the URL query string.
+  // RFC 6749 §2.3.1 forbids credentials in the request-URI.
+  const url = 'https://graph.facebook.com/v22.0/oauth/access_token'
 
   try {
-    const response = await fetch(url)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: appId,
+        client_secret: appSecret,  // T-1-SECRET: in body, not URL
+        redirect_uri: redirectUri,
+        code,                       // T-1-EXPOSE: code never logged
+      }).toString(),
+    })
     const data = await response.json() as Record<string, unknown>
 
     // FB Graph API returns error in body (with HTTP 200 or 4xx)
