@@ -11,16 +11,20 @@
  * RED state: This test will fail until seed.ts is implemented (Plan 03 Wave 2).
  */
 
-import { test, expect, describe, beforeAll } from 'bun:test'
+// Env vars MUST be set at module scope BEFORE any static imports that reach
+// client.ts. The db singleton (openDatabase()) is evaluated when client.ts is
+// first imported — which happens transitively via `import { seedDefaultSettings }
+// from '../seed'` below. Setting process.env inside beforeAll() is too late
+// because module-level code runs before any test lifecycle hooks.
+// Pattern mirrors fbOauth.test.ts lines 26-30 (the correct reference).
+process.env.BUN_ENCRYPTION_KEY = 'a'.repeat(64)
+process.env.DATABASE_URL = ':memory:'
+
+import { test, expect, describe } from 'bun:test'
 import { seedDefaultSettings } from '../seed'
 import { settings } from './db/schema'
 
 describe('seedDefaultSettings — idempotent default settings (D-08)', () => {
-  beforeAll(() => {
-    process.env.BUN_ENCRYPTION_KEY = 'a'.repeat(64)
-    process.env.DATABASE_URL = ':memory:'
-  })
-
   test('D-08: calling seedDefaultSettings() twice results in exactly one settings row', async () => {
     // seedDefaultSettings() uses the singleton db (from client.ts).
     // Query via the same singleton so the assertion sees the same connection.
