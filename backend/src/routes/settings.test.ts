@@ -80,12 +80,18 @@ describe('Settings routes — security assertions (SET-01)', () => {
   // (b) T-1-FBVERIFY: invalid FB token rejected at POST fb-connect (422)
   // --------------------------------------------------------------------------
   describe('T-1-FBVERIFY: POST /api/settings/fb-connect rejects invalid token', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       installFbMock({
         success: false,
         errorMessage: 'Invalid OAuth access token.',
         errorCode: 190,
       })
+      // Clear pages table before each test to ensure isolated state.
+      // T-1-EXPOSE may have inserted a valid page in the shared in-memory DB;
+      // this test must start with no connected pages to assert fbConnected: false.
+      const { db } = await import('../db/client')
+      const { pages } = await import('../db/schema')
+      await db.delete(pages)
     })
 
     test('T-1-FBVERIFY: invalid token returns 422 status', async () => {
@@ -131,6 +137,9 @@ describe('Settings routes — security assertions (SET-01)', () => {
       // We import the db to insert a bad token directly
       const { db } = await import('../db/client')
       const { pages } = await import('../db/schema')
+
+      // Clear any valid pages from earlier tests (test isolation — shared in-memory DB)
+      await db.delete(pages)
 
       // Insert a page row with a token encrypted under a DIFFERENT key
       // (simulates key rotation / key loss scenario)
