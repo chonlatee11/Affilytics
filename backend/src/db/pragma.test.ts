@@ -33,4 +33,25 @@ describe('PRAGMAs — per-connection settings on the live connection', () => {
     const result = raw.query('PRAGMA journal_mode').get() as { journal_mode: string }
     expect(result.journal_mode).toBe('wal')
   })
+
+  test('CR-01: foreign_keys is ON (1) on the connection opened by openDatabase()', () => {
+    const raw = rawSqlite(db)
+    // foreign_keys is per-connection and defaults to OFF; it must be enabled in
+    // openDatabase() so the declared FOREIGN KEY constraints are actually enforced.
+    const result = raw.query('PRAGMA foreign_keys').get() as { foreign_keys: number }
+    expect(result.foreign_keys).toBe(1)
+  })
+
+  test('CR-01: inserting a post_drafts row with a bogus product_id throws (FK enforced)', () => {
+    const raw = rawSqlite(db)
+    // post_drafts.product_id is NOT NULL REFERENCES products(id). With foreign_keys ON,
+    // referencing a non-existent product must raise a constraint error rather than
+    // silently writing a dangling reference.
+    expect(() => {
+      raw.run(
+        `INSERT INTO post_drafts (id, product_id, caption_th, caption_en)
+         VALUES ('draft-fk-test', 'nonexistent-product-id', 'th', 'en')`
+      )
+    }).toThrow()
+  })
 })

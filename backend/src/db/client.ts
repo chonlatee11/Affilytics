@@ -61,6 +61,10 @@ export function openDatabase(path?: string): AppDatabase {
   // (Pitfall 2: migrate() must run in WAL mode; Pitfall 1: busy_timeout is per-connection)
   sqlite.exec('PRAGMA journal_mode = WAL')
   sqlite.exec('PRAGMA busy_timeout = 5000')
+  // foreign_keys is OFF by default and per-connection (like busy_timeout) — it must be
+  // set on every new Database(). Without it the FOREIGN KEY clauses in the migration are
+  // declared but silently inert, allowing orphaned/dangling references (CR-01).
+  sqlite.exec('PRAGMA foreign_keys = ON')
 
   const db = drizzle(sqlite, { schema }) as AppDatabase
 
