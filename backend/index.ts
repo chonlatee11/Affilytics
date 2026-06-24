@@ -38,10 +38,13 @@ import { healthRoutes } from './src/routes/health'
 import { settingsRoutes } from './src/routes/settings'
 import { fbOauthRoutes } from './src/routes/fbOauth'
 
+// PORT is configurable via the documented PORT env var (.env.example), defaulting to 3000.
+const PORT = Number(process.env.PORT ?? 3000)
+
 export const app = new Elysia({
   serve: {
     hostname: '127.0.0.1',
-    port: 3000,
+    port: PORT,
   },
 })
   // CORS allowlist: localhost dashboard + chrome-extension origin
@@ -67,7 +70,7 @@ export const app = new Elysia({
 // Listen only when run as the main entry point (bun run index.ts).
 // When imported by tests, this block is skipped — no accidental port 3000 bind.
 if (import.meta.main) {
-  app.listen(3000)
+  app.listen(PORT)
   console.log(
     `Listening on http://${app.server?.hostname}:${app.server?.port}`
   )
