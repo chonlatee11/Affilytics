@@ -1,15 +1,18 @@
 /**
- * Facebook Graph API token verification service.
+ * Facebook Graph API service.
  *
  * D-02: Verify pasted FB token against the live Graph API before storing.
- * T-1-EXPOSE: Token is NEVER logged — redacted before any log output.
+ * T-1-EXPOSE: Tokens are NEVER logged — redacted before any log output.
+ * T-1-SECRET: FB_APP_SECRET is NEVER logged or returned.
  * T-1-FBVERIFY: Invalid or mismatched tokens return { ok: false } without persistence.
  *
- * Endpoint: GET https://graph.facebook.com/v22.0/me?fields=id,name&access_token=<token>
- * - Returns { id, name } on success
- * - Returns { error: { message, type, code } } on failure (with HTTP 200)
- * - data_access_expires_at is NOT available via /me (only via long-lived token exchange in Phase 6)
+ * Endpoints:
+ * - GET /v22.0/me?fields=id,name&access_token=<token>  (verifyToken — manual paste flow)
+ * - GET /v22.0/oauth/access_token  (exchangeCodeForToken — OAuth flow)
+ * - GET /v22.0/me/accounts  (getPageAccessToken — OAuth flow)
  */
+
+import { requireFbOAuthConfig } from '../../env'
 
 export interface VerifyTokenResult {
   ok: true
@@ -24,6 +27,34 @@ export interface VerifyTokenError {
 }
 
 export type VerifyTokenResponse = VerifyTokenResult | VerifyTokenError
+
+// ─── OAuth helpers result types ───────────────────────────────────────────────
+
+export interface ExchangeCodeSuccess {
+  ok: true
+  userToken: string
+}
+
+export interface ExchangeCodeError {
+  ok: false
+  error: string
+}
+
+export type ExchangeCodeResult = ExchangeCodeSuccess | ExchangeCodeError
+
+export interface GetPageTokenSuccess {
+  ok: true
+  pageId: string
+  pageName: string
+  pageToken: string
+}
+
+export interface GetPageTokenError {
+  ok: false
+  error: string
+}
+
+export type GetPageTokenResult = GetPageTokenSuccess | GetPageTokenError
 
 /**
  * verifyToken(token, expectedPageId) — verifies a Facebook Page access token.
@@ -84,6 +115,134 @@ export async function verifyToken(
     const message = err instanceof Error ? err.message : String(err)
     // Do NOT include the token in logs — T-1-EXPOSE
     console.error(`fbService.verifyToken: network/parse error for token [REDACTED]: ${message}`)
+    return {
+      ok: false,
+      error: `Network error: ${message}`,
+    }
+  }
+}
+
+/**
+ * exchangeCodeForToken(code) — exchanges an OAuth authorization code for a user access token.
+ *
+ * Calls GET https://graph.facebook.com/v22.0/oauth/access_token with:
+ *   client_id, client_secret (from requireFbOAuthConfig()), redirect_uri, code
+ *
+ * Returns { ok:true, userToken } on success.
+ * Returns { ok:false, error } on Graph error or missing access_token — never throws.
+ *
+ * T-1-SECRET: FB_APP_SECRET is read from env but NEVER logged or returned.
+ * T-1-EXPOSE: The authorization code and user token are NEVER logged.
+ */
+export async function exchangeCodeForToken(code: string): Promise<ExchangeCodeResult> {
+  const { appId, appSecret, redirectUri } = requireFbOAuthConfig()
+
+  const params = new URLSearchParams({
+    client_id: appId,
+    client_secret: appSecret,  // T-1-SECRET: used in URL but never logged
+    redirect_uri: redirectUri,
+    code,                       // T-1-EXPOSE: code never logged
+  })
+
+  const url = `https://graph.facebook.com/v22.0/oauth/access_token?${params.toString()}`
+
+  try {
+    const response = await fetch(url)
+    const data = await response.json() as Record<string, unknown>
+
+    // FB Graph API returns error in body (with HTTP 200 or 4xx)
+    if (data.error && typeof data.error === 'object') {
+      const fbError = data.error as { message?: string }
+      return {
+        ok: false,
+        error: fbError.message ?? 'Facebook OAuth exchange error',
+      }
+    }
+
+    if (typeof data.access_token !== 'string' || data.access_token.length === 0) {
+      return {
+        ok: false,
+        error: 'Missing access_token in Graph API response',
+      }
+    }
+
+    // T-1-EXPOSE: never log the token or code
+    return {
+      ok: true,
+      userToken: data.access_token,
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    // T-1-SECRET + T-1-EXPOSE: do NOT include appSecret, code, or token in error messages
+    console.error(`fbService.exchangeCodeForToken: network/parse error: ${message}`)
+    return {
+      ok: false,
+      error: `Network error: ${message}`,
+    }
+  }
+}
+
+/**
+ * getPageAccessToken(userToken) — resolves the operator's Page access token from /me/accounts.
+ *
+ * Calls GET https://graph.facebook.com/v22.0/me/accounts?access_token=<userToken>
+ * Returns the first Page in the response (single-operator tool).
+ *
+ * Returns { ok:true, pageId, pageName, pageToken } on success.
+ * Returns { ok:false, error } on empty data, Graph error, or network failure — never throws.
+ *
+ * T-1-EXPOSE: userToken and pageToken are NEVER logged.
+ */
+export async function getPageAccessToken(userToken: string): Promise<GetPageTokenResult> {
+  // T-1-EXPOSE: user token encoded in URL params but never logged
+  const params = new URLSearchParams({ access_token: userToken })
+  const url = `https://graph.facebook.com/v22.0/me/accounts?${params.toString()}`
+
+  try {
+    const response = await fetch(url)
+    const data = await response.json() as Record<string, unknown>
+
+    // Graph API error in body
+    if (data.error && typeof data.error === 'object') {
+      const fbError = data.error as { message?: string }
+      return {
+        ok: false,
+        error: fbError.message ?? 'Facebook me/accounts error',
+      }
+    }
+
+    // Validate data array
+    if (!Array.isArray(data.data) || data.data.length === 0) {
+      return {
+        ok: false,
+        error: 'No Facebook Pages found for this user token. Ensure the operator has a connected Page.',
+      }
+    }
+
+    const firstPage = data.data[0] as Record<string, unknown>
+
+    if (
+      typeof firstPage.id !== 'string' ||
+      typeof firstPage.name !== 'string' ||
+      typeof firstPage.access_token !== 'string'
+    ) {
+      return {
+        ok: false,
+        error: 'Unexpected page data format from Facebook me/accounts',
+      }
+    }
+
+    // T-1-EXPOSE: page token never logged
+    return {
+      ok: true,
+      pageId: firstPage.id,
+      pageName: firstPage.name,
+      pageToken: firstPage.access_token,
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    // T-1-EXPOSE: do NOT include userToken in error messages
+    console.error(`fbService.getPageAccessToken: network/parse error: ${message}`)
     return {
       ok: false,
       error: `Network error: ${message}`,
