@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Completed 01-02: schema + crypto + migrations GREEN"
-last_updated: "2026-06-24T13:32:13.018Z"
+stopped_at: "Completed 01-05: Facebook OAuth Dev-Mode Page-connect (Phase 01 complete)"
+last_updated: "2026-06-24T13:43:34.030Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 8
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 5
-  completed_plans: 4
-  percent: 0
+  completed_plans: 5
+  percent: 13
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 01 (backend-foundation) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-06-24
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -54,6 +54,7 @@ Progress: [████████░░] 80%
 *Updated after each plan completion*
 | Phase 01-backend-foundation P01 | 8 | 3 tasks | 16 files |
 | Phase 01-backend-foundation P02 | 18 | 3 tasks | 8 files |
+| Phase 01-backend-foundation P01-05 | 35 minutes | 4 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -67,6 +68,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase ?]: env.ts at backend/ root: Wave 0 test imports '../env' from src/ resolving to backend/env.ts — test path is source of truth
 - [Phase ?]: rawSqlite() as function via WeakMap: tests call rawSqlite(db) passing drizzle instance; WeakMap stores raw handle per db
 - [Phase ?]: :memory: mapped to file::memory:?cache=shared: standard :memory: rejects WAL; shared-cache URI supports WAL for test assertions
+- [01-05]: OAuth CSRF state in in-process Set (no DB column) — single-operator, restart wipes state, operator re-opens /authorize
+- [01-05]: redirect_uri sourced server-side only from FB_OAUTH_REDIRECT_URI (T-1-OPENREDIR mitigation)
+- [01-05]: Dev-Mode OAuth ships Phase 1; Meta App Review for pages_manage_posts stays Phase 5 deliverable
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-24T13:32:13.004Z
-Stopped at: Completed 01-02: schema + crypto + migrations GREEN
+Last session: 2026-06-24T13:43:34.014Z
+Stopped at: Completed 01-05: Facebook OAuth Dev-Mode Page-connect (Phase 01 complete)
 Resume file: None

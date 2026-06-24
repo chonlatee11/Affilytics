@@ -13,7 +13,7 @@ Affilytics is built as eight dependency-ordered vertical slices. We start with a
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Backend Foundation** - Bun+Elysia+SQLite base, full schema, encrypted FB token, Page connect (verification 2026-06-24: gaps found — gap closure pending)
+- [x] **Phase 1: Backend Foundation** - Bun+Elysia+SQLite base, full schema, encrypted FB token, Page connect (verification 2026-06-24: gaps found — gap closure pending) (completed 2026-06-24)
 - [ ] **Phase 2: Product Capture (Shopee)** - MV3 extension captures a Shopee product into the backend
 - [ ] **Phase 3: Scoring, Commission & Links** - weighted promote-worthiness score with tunable weights
 - [ ] **Phase 4: Dashboard** - ranked/filterable product table + multi-product comparison
@@ -54,7 +54,7 @@ Plans:
 **Gap Closure** *(verification 2026-06-24: 4 gaps — wave 0, independent)*
 
 - [x] 01-04-PLAN.md — fix broken dev script (Gap 1), stop in-memory test-DB disk leak + gitignore + remove leaked files (Gap 2), import.meta.main listen guard + collapse double-migrate (Gap 3)
-- [ ] 01-05-PLAN.md — Facebook OAuth Page-connect flow in Dev Mode (Gap 4 / SC-3): authorize+callback, CSRF state, code→Page-token exchange, encrypt-at-rest, manual paste fallback kept; App Review stays Phase 5
+- [x] 01-05-PLAN.md — Facebook OAuth Page-connect flow in Dev Mode (Gap 4 / SC-3): authorize+callback, CSRF state, code→Page-token exchange, encrypt-at-rest, manual paste fallback kept; App Review stays Phase 5
 
 ### Phase 2: Product Capture (Shopee)
 
@@ -208,7 +208,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Foundation | 4/5 | In Progress|  |
+| 1. Backend Foundation | 5/5 | Complete   | 2026-06-24 |
 | 2. Product Capture (Shopee) | 0/TBD | Not started | - |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |
