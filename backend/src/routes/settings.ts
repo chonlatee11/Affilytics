@@ -39,20 +39,24 @@ export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
       const accessTokenEnc = encrypt(accessToken)
 
       // Step 3: Upsert the single pages row (single-operator tool — one connected page)
+      // WR-06 / TODO(Phase 5 FB Publishing): populate dataAccessExpiresAt so the dashboard
+      // can warn the operator before the token silently expires (CLAUDE.md Known Constraint #3:
+      // FB tokens expire ~60 days). The manual /me paste flow does not expose expiry; this
+      // requires fetching `data_access_expires_at` via debug_token. Stored null until then.
       await db
         .insert(pages)
         .values({
           fbPageId:            result.pageId,
           pageName:            result.pageName,
           accessTokenEnc,
-          dataAccessExpiresAt: null,  // /me endpoint does not provide expiry (Phase 6 OAuth does)
+          dataAccessExpiresAt: null,  // TODO(Phase 5): /me paste flow has no expiry; debug_token needed (WR-06)
         })
         .onConflictDoUpdate({
           target: pages.fbPageId,
           set: {
             pageName:            result.pageName,
             accessTokenEnc,
-            dataAccessExpiresAt: null,
+            dataAccessExpiresAt: null,  // TODO(Phase 5): see above (WR-06)
           },
         })
 
@@ -60,7 +64,7 @@ export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
       return {
         ok: true,
         pageName:            result.pageName,
-        dataAccessExpiresAt: null,
+        dataAccessExpiresAt: null,  // TODO(Phase 5): populate real expiry once debug_token wired (WR-06)
       }
     },
     {

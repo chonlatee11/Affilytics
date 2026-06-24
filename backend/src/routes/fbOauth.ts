@@ -148,20 +148,25 @@ export const fbOauthRoutes = new Elysia({ prefix: '/api/settings/fb-oauth' })
     // --- Step 4: Encrypt and store (T-1-EXPOSE: pageToken encrypted before persistence) ---
     const accessTokenEnc = encrypt(pageToken)  // AES-256-GCM
 
+    // WR-06 / TODO(Phase 5 FB Publishing): the OAuth flow already obtains a real page/user
+    // token whose `data_access_expires_at` is retrievable via Graph (debug_token /
+    // fields=data_access_expires_at). It is currently discarded, so the dashboard cannot
+    // warn before the token silently expires (CLAUDE.md Known Constraint #3). Persist the
+    // real expiry here once getPageAccessToken surfaces it.
     await db
       .insert(pages)
       .values({
         fbPageId: pageId,
         pageName,
         accessTokenEnc,
-        dataAccessExpiresAt: null,  // Available via long-lived token exchange in Phase 6
+        dataAccessExpiresAt: null,  // TODO(Phase 5): persist real expiry from debug_token (WR-06)
       })
       .onConflictDoUpdate({
         target: pages.fbPageId,
         set: {
           pageName,
           accessTokenEnc,
-          dataAccessExpiresAt: null,
+          dataAccessExpiresAt: null,  // TODO(Phase 5): see above (WR-06)
         },
       })
 
