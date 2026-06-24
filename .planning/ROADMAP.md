@@ -45,7 +45,7 @@ Plans:
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Wave 0: backend Bun scaffold + all 8 VALIDATION.md test files (RED) + FB fetch mock
-- [ ] 01-02-PLAN.md — Wave 1: 7-entity Drizzle schema, WAL+busy_timeout DB client, tracked migration generate+apply, AES-256-GCM crypto, env fail-fast
+- [x] 01-02-PLAN.md — Wave 1: 7-entity Drizzle schema, WAL+busy_timeout DB client, tracked migration generate+apply, AES-256-GCM crypto, env fail-fast
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Foundation | 1/3 | In Progress|  |
+| 1. Backend Foundation | 2/3 | In Progress|  |
 | 2. Product Capture (Shopee) | 0/TBD | Not started | - |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |

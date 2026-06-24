@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-06-24T11:36:17.956Z"
+stopped_at: "Completed 01-02: schema + crypto + migrations GREEN"
+last_updated: "2026-06-24T11:47:23.027Z"
 last_activity: 2026-06-24
 progress:
   total_phases: 8
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 01 (backend-foundation) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-06-24
 
-Progress: [███░░░░░░░] 33%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███░░░░░░░] 33%
 
 *Updated after each plan completion*
 | Phase 01-backend-foundation P01 | 8 | 3 tasks | 16 files |
+| Phase 01-backend-foundation P02 | 18 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Init: Start extension on Chrome; start parser with Shopee; balanced scoring weights (tune later via US-6 loop)
 - Init: Bun + Elysia + Drizzle/SQLite (WAL) backend; WXT for MV3 extension; raw fetch (no FB SDK)
 - Init: Vertical MVP phase structure (8 phases)
+- [Phase ?]: env.ts at backend/ root: Wave 0 test imports '../env' from src/ resolving to backend/env.ts — test path is source of truth
+- [Phase ?]: rawSqlite() as function via WeakMap: tests call rawSqlite(db) passing drizzle instance; WeakMap stores raw handle per db
+- [Phase ?]: :memory: mapped to file::memory:?cache=shared: standard :memory: rejects WAL; shared-cache URI supports WAL for test assertions
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-24T11:36:17.942Z
-Stopped at: Phase 1 context gathered
+Last session: 2026-06-24T11:47:23.011Z
+Stopped at: Completed 01-02: schema + crypto + migrations GREEN
 Resume file: None
