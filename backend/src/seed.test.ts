@@ -13,8 +13,8 @@
 
 import { test, expect, describe, beforeAll } from 'bun:test'
 import { seedDefaultSettings } from '../seed'
-import { openDatabase, rawSqlite } from '../db/client'
-import { settings } from '../db/schema'
+import { openDatabase, rawSqlite } from './db/client'
+import { settings } from './db/schema'
 
 describe('seedDefaultSettings — idempotent default settings (D-08)', () => {
   beforeAll(() => {
