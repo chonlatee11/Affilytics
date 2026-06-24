@@ -13,7 +13,6 @@
 
 import { test, expect, describe, beforeAll } from 'bun:test'
 import { seedDefaultSettings } from '../seed'
-import { openDatabase, rawSqlite } from './db/client'
 import { settings } from './db/schema'
 
 describe('seedDefaultSettings — idempotent default settings (D-08)', () => {
@@ -23,8 +22,9 @@ describe('seedDefaultSettings — idempotent default settings (D-08)', () => {
   })
 
   test('D-08: calling seedDefaultSettings() twice results in exactly one settings row', async () => {
-    // Use a fresh in-memory DB for this test
-    const db = openDatabase(':memory:')
+    // seedDefaultSettings() uses the singleton db (from client.ts).
+    // Query via the same singleton so the assertion sees the same connection.
+    const { db } = await import('./db/client')
 
     // Call seed twice — must be idempotent (INSERT OR IGNORE / onConflictDoNothing)
     await seedDefaultSettings()
@@ -33,8 +33,6 @@ describe('seedDefaultSettings — idempotent default settings (D-08)', () => {
     const rows = await db.select().from(settings)
     expect(rows).toHaveLength(1)
     expect(rows[0].id).toBe('default')
-
-    rawSqlite(db).close()
   })
 
   test('D-08: default row has id=default', async () => {

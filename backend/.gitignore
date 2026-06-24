@@ -12,6 +12,8 @@ data/
 *.db
 *.db-wal
 *.db-shm
+# Defense-in-depth: ignore any leaked in-memory DB artifacts (file::memory:?cache=shared*)
+file::memory:*
 
 # Build outputs
 dist/
