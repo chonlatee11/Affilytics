@@ -37,6 +37,33 @@ export function requireEncryptionKey(): Buffer {
 }
 
 /**
+ * resolvePort() — reads PORT from environment and returns a validated port number.
+ *
+ * WR-01: `Number(process.env.PORT ?? 3000)` mis-binds silently because `??` only
+ * falls back on null/undefined, NOT on an empty string. `Number('')` → 0 (OS picks a
+ * random ephemeral port the extension/dashboard cannot reach) and `Number('abc')` → NaN.
+ * This validates the parsed value and fails fast (consistent with the project's
+ * fail-fast boot philosophy), falling back to 3000 only when PORT is unset/empty.
+ *
+ * @param raw The raw PORT value (defaults to process.env.PORT). Pass explicitly in tests.
+ * @returns A finite integer port in the valid range 1–65535.
+ * @throws Error when PORT is present but not a valid integer port.
+ */
+export function resolvePort(raw: string | undefined = process.env.PORT): number {
+  // Fall back to 3000 only when PORT is unset or empty (e.g. an uncommented `PORT=` line).
+  if (raw == null || raw === '') return 3000
+
+  const port = Number(raw)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(
+      `Invalid PORT="${raw}" — must be an integer between 1 and 65535 (or unset to default to 3000).`,
+    )
+  }
+
+  return port
+}
+
+/**
  * FB OAuth configuration for the Page-connect flow (Dev Mode).
  *
  * Returns { appId, appSecret, redirectUri } when all three vars are set.

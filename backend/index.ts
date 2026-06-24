@@ -16,7 +16,7 @@
  * SET-01: /api/settings/fb-connect verifies, encrypts, stores FB token.
  */
 
-import { requireEncryptionKey } from './env'
+import { requireEncryptionKey, resolvePort } from './env'
 import { Elysia } from 'elysia'
 import cors from '@elysiajs/cors'
 import swagger from '@elysiajs/swagger'
@@ -39,7 +39,9 @@ import { settingsRoutes } from './src/routes/settings'
 import { fbOauthRoutes } from './src/routes/fbOauth'
 
 // PORT is configurable via the documented PORT env var (.env.example), defaulting to 3000.
-const PORT = Number(process.env.PORT ?? 3000)
+// WR-01: resolvePort() validates the value and fails fast on empty-string/NaN/out-of-range,
+// rather than silently binding port 0 (random ephemeral) or NaN.
+const PORT = resolvePort()
 
 export const app = new Elysia({
   serve: {

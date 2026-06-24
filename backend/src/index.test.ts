@@ -9,7 +9,7 @@
  */
 
 import { test, expect, describe, beforeEach, afterEach } from 'bun:test'
-import { requireEncryptionKey } from '../env'
+import { requireEncryptionKey, resolvePort } from '../env'
 
 describe('env — fail-fast when BUN_ENCRYPTION_KEY is missing', () => {
   let savedKey: string | undefined
@@ -45,5 +45,42 @@ describe('env — fail-fast when BUN_ENCRYPTION_KEY is missing', () => {
     // Should return a 32-byte Buffer
     expect(key).toBeInstanceOf(Buffer)
     expect(key.length).toBe(32)
+  })
+})
+
+describe('WR-01: resolvePort() validates PORT and fails fast on bad values', () => {
+  test('defaults to 3000 when PORT is unset (undefined)', () => {
+    expect(resolvePort(undefined)).toBe(3000)
+  })
+
+  test('defaults to 3000 when PORT is an empty string (uncommented PORT= line)', () => {
+    // Number('') === 0 would silently bind a random ephemeral port — must default instead.
+    expect(resolvePort('')).toBe(3000)
+  })
+
+  test('returns the parsed integer for a valid port', () => {
+    expect(resolvePort('8080')).toBe(8080)
+    expect(resolvePort('1')).toBe(1)
+    expect(resolvePort('65535')).toBe(65535)
+  })
+
+  test('throws on a non-numeric PORT (Number("abc") === NaN)', () => {
+    expect(() => resolvePort('abc')).toThrow()
+  })
+
+  test('throws on port 0 (would otherwise bind a random ephemeral port)', () => {
+    expect(() => resolvePort('0')).toThrow()
+  })
+
+  test('throws on an out-of-range port (> 65535)', () => {
+    expect(() => resolvePort('70000')).toThrow()
+  })
+
+  test('throws on a negative port', () => {
+    expect(() => resolvePort('-1')).toThrow()
+  })
+
+  test('throws on a non-integer (fractional) port', () => {
+    expect(() => resolvePort('3000.5')).toThrow()
   })
 })
