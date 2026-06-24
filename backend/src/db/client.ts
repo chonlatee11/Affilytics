@@ -90,10 +90,12 @@ export function openDatabase(path?: string): AppDatabase {
   try {
     migrate(db, { migrationsFolder: './drizzle' })
   } catch (err) {
-    // If drizzle/ directory doesn't exist yet (before first `drizzle-kit generate` run),
-    // skip silently. This allows client.ts to be imported and used (e.g., by tests for
-    // PRAGMA assertions) before migrations are generated.
-    // After Task 3 generates the SQL files, all calls will run migrations successfully.
+    // Now that drizzle/ is committed, a migration failure on a real file-based DB is
+    // a genuine boot-time schema error and MUST be loud (WR-02): swallowing it would
+    // leave the server "successfully" booting into a tableless, broken state.
+    // Only tolerate the "migrations not generated yet" case for in-memory/test DBs,
+    // where client.ts may be imported before SQL files exist.
+    if (!isMemory) throw err
     const message = err instanceof Error ? err.message : String(err)
     const isMissingMigrations =
       message.includes('no such file') ||
