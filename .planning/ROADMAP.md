@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Operator can connect a Facebook Page via OAuth and the access token is stored encrypted at rest (AES-256-GCM), never returned in plaintext by any API
   4. API is reachable only over localhost
 
-**Plans**: 3 plans
+**Plans**: 5 plans (3 original + 2 gap-closure)
 
 Notes: Set `PRAGMA journal_mode=WAL` + `PRAGMA busy_timeout=5000` at connection open (research pitfall #5 — retrofitting needs a migration). Encryption key from `BUN_ENCRYPTION_KEY` env var; fail fast at startup if missing. Use Drizzle ORM on `drizzle-orm/bun-sqlite`.
 
@@ -50,6 +50,11 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 01-03-PLAN.md — Wave 2: 127.0.0.1+CORS boot, health route, FB-connect settings (verify→encrypt→store, no token leak, disconnected state), idempotent seed, setup script
+
+**Gap Closure** *(verification 2026-06-24: 4 gaps — wave 0, independent)*
+
+- [ ] 01-04-PLAN.md — fix broken dev script (Gap 1), stop in-memory test-DB disk leak + gitignore + remove leaked files (Gap 2), import.meta.main listen guard + collapse double-migrate (Gap 3)
+- [ ] 01-05-PLAN.md — Facebook OAuth Page-connect flow in Dev Mode (Gap 4 / SC-3): authorize+callback, CSRF state, code→Page-token exchange, encrypt-at-rest, manual paste fallback kept; App Review stays Phase 5
 
 ### Phase 2: Product Capture (Shopee)
 
