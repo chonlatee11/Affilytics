@@ -23,8 +23,9 @@ describe('PRAGMAs — per-connection settings on the live connection', () => {
     const raw = rawSqlite(db)
     // busy_timeout is per-connection and must be set in openDatabase() immediately
     // after new Database(). A value of 0 means SQLite fails immediately on lock contention.
-    const result = raw.query('PRAGMA busy_timeout').get() as { busy_timeout: number }
-    expect(result.busy_timeout).toBe(5000)
+    // Note: SQLite's PRAGMA busy_timeout returns a column named 'timeout' (not 'busy_timeout')
+    const result = raw.query('PRAGMA busy_timeout').get() as { timeout: number }
+    expect(result.timeout).toBe(5000)
   })
 
   test('FOUND-02: journal_mode is wal (set before busy_timeout, persists in file header)', () => {
