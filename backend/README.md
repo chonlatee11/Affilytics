@@ -58,13 +58,59 @@ curl http://127.0.0.1:3000/api/settings
 
 ---
 
+## Connect a Facebook Page (OAuth, Dev Mode)
+
+The OAuth Page-connect flow lets you connect your Facebook Page by logging in via Facebook — no manual token copying required.
+
+> **Note:** This flow works **right now in Facebook App Development Mode** because you are the app admin. Meta App Review for Advanced Access (`pages_manage_posts`) is a **Phase 5 deliverable** — it is not required for the Dev-Mode connect flow.
+
+### Prerequisites
+
+1. Go to [https://developers.facebook.com/apps](https://developers.facebook.com/apps) and create a Facebook App (or reuse an existing one). **Keep it in Development Mode** — do NOT submit for App Review.
+2. Add the **Facebook Login** product to your app.
+3. Under **Facebook Login → Settings → Valid OAuth Redirect URIs**, register:
+   ```
+   http://localhost:3000/api/settings/fb-oauth/callback
+   ```
+4. Copy these values into `backend/.env` (this file is gitignored — **never commit it**):
+   ```
+   FB_APP_ID=<your App ID from App Settings → Basic>
+   FB_APP_SECRET=<your App Secret — NEVER commit, log, or share this>
+   FB_OAUTH_REDIRECT_URI=http://localhost:3000/api/settings/fb-oauth/callback
+   ```
+
+See `backend/.env.example` for a documented template.
+
+### Connecting via OAuth
+
+1. Start the backend: `bun run dev`
+2. Open in your browser: `http://127.0.0.1:3000/api/settings/fb-oauth/authorize`
+3. Facebook login page appears → log in and approve the permissions.
+4. Facebook redirects back to the callback URL → the backend validates the CSRF state, exchanges the code for a user token, resolves the Page access token, encrypts it (AES-256-GCM), and stores it.
+5. Verify the connection:
+   ```bash
+   curl http://127.0.0.1:3000/api/settings
+   # Returns: {"fbConnected":true,"pageName":"Your Page Name",...}
+   ```
+
+### Notes
+
+- **Security:** `FB_APP_SECRET` is used server-side only and is **never logged, returned, or committed**. The Page access token is encrypted at rest and never returned by any endpoint in plaintext.
+- **CSRF protection:** A one-time CSRF `state` is generated at `/authorize` and validated at `/callback`. The state store is in-process and is wiped on server restart. If `/callback` returns a `state_mismatch` error (e.g., after restarting the server mid-flow), simply re-open `/authorize` to start a fresh flow.
+- **Manual fallback:** The manual token-paste endpoint `POST /api/settings/fb-connect` remains available as a fallback (see above).
+- **App Review:** The `pages_manage_posts` permission (required for publishing) is a **Phase 5 deliverable**. The current scopes (`pages_show_list`, `pages_read_engagement`, `business_management`) work without App Review in Development Mode.
+
+---
+
 ## API Endpoints (Phase 1)
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/health` | Health check + DB connectivity |
-| `POST` | `/api/settings/fb-connect` | Connect Facebook Page (verify + encrypt + store) |
+| `POST` | `/api/settings/fb-connect` | Connect Facebook Page via manual token paste (verify + encrypt + store) |
 | `GET` | `/api/settings` | Get settings + FB connection status |
+| `GET` | `/api/settings/fb-oauth/authorize` | Start OAuth Page-connect flow (Dev Mode) |
+| `GET` | `/api/settings/fb-oauth/callback` | OAuth callback: validate CSRF state, exchange code, encrypt + store Page token |
 
 ---
 
@@ -95,5 +141,8 @@ curl http://127.0.0.1:3000/api/settings
 |----------|---------|-------------|
 | `BUN_ENCRYPTION_KEY` | — (required) | 64-char hex key for AES-256-GCM; generate with `bun run setup` |
 | `DATABASE_URL` | `data/affilytics.db` | SQLite database file path |
+| `FB_APP_ID` | — (optional) | Facebook App ID (required for OAuth flow only) |
+| `FB_APP_SECRET` | — (optional) | Facebook App Secret — **never commit, log, or share** (OAuth flow only) |
+| `FB_OAUTH_REDIRECT_URI` | — (optional) | Callback URL registered Facebook-side (OAuth flow only) |
 
 See `.env.example` for a template.
