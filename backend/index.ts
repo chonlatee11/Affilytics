@@ -36,6 +36,7 @@ await seedDefaultSettings()
 // Steps 4-6: Create Elysia app bound to 127.0.0.1 (Pitfall 4: never 0.0.0.0)
 import { healthRoutes } from './src/routes/health'
 import { settingsRoutes } from './src/routes/settings'
+import { fbOauthRoutes } from './src/routes/fbOauth'
 
 export const app = new Elysia({
   serve: {
@@ -61,6 +62,7 @@ export const app = new Elysia({
   // Routes
   .use(healthRoutes)
   .use(settingsRoutes)
+  .use(fbOauthRoutes)  // SET-01 / Gap 4: OAuth Page-connect flow (Dev Mode)
 
 // Listen only when run as the main entry point (bun run index.ts).
 // When imported by tests, this block is skipped — no accidental port 3000 bind.
