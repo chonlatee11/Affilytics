@@ -53,7 +53,7 @@ Plans:
 
 **Gap Closure** *(verification 2026-06-24: 4 gaps — wave 0, independent)*
 
-- [ ] 01-04-PLAN.md — fix broken dev script (Gap 1), stop in-memory test-DB disk leak + gitignore + remove leaked files (Gap 2), import.meta.main listen guard + collapse double-migrate (Gap 3)
+- [x] 01-04-PLAN.md — fix broken dev script (Gap 1), stop in-memory test-DB disk leak + gitignore + remove leaked files (Gap 2), import.meta.main listen guard + collapse double-migrate (Gap 3)
 - [ ] 01-05-PLAN.md — Facebook OAuth Page-connect flow in Dev Mode (Gap 4 / SC-3): authorize+callback, CSRF state, code→Page-token exchange, encrypt-at-rest, manual paste fallback kept; App Review stays Phase 5
 
 ### Phase 2: Product Capture (Shopee)
@@ -208,7 +208,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Foundation | 3/3 | Gaps Found | - |
+| 1. Backend Foundation | 4/5 | In Progress|  |
 | 2. Product Capture (Shopee) | 0/TBD | Not started | - |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |
