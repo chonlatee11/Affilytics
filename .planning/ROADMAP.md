@@ -13,7 +13,7 @@ Affilytics is built as eight dependency-ordered vertical slices. We start with a
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [x] **Phase 1: Backend Foundation** - Bun+Elysia+SQLite base, full schema, encrypted FB token, Page connect (completed 2026-06-24)
+- [ ] **Phase 1: Backend Foundation** - Bun+Elysia+SQLite base, full schema, encrypted FB token, Page connect (verification 2026-06-24: gaps found — gap closure pending)
 - [ ] **Phase 2: Product Capture (Shopee)** - MV3 extension captures a Shopee product into the backend
 - [ ] **Phase 3: Scoring, Commission & Links** - weighted promote-worthiness score with tunable weights
 - [ ] **Phase 4: Dashboard** - ranked/filterable product table + multi-product comparison
@@ -203,7 +203,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Backend Foundation | 3/3 | Complete   | 2026-06-24 |
+| 1. Backend Foundation | 3/3 | Gaps Found | - |
 | 2. Product Capture (Shopee) | 0/TBD | Not started | - |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |
