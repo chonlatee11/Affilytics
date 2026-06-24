@@ -14,7 +14,8 @@ Affilytics is a self-hosted, zero-cost "pre-posting decision" tool for affiliate
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — ship to validate)
+- **Phase 1 — Backend Foundation (validated 2026-06-24):** Localhost Bun+Elysia backend on 127.0.0.1 with CORS; SQLite (WAL + busy_timeout) and full 7-entity schema; AES-256-GCM encrypted Facebook token at rest (never returned in plaintext); Facebook Page connect via OAuth (Dev-Mode code path) + manual paste fallback. Closes FOUND-01, FOUND-02, FOUND-03, SET-01.
+  - Follow-up (non-blocking, test hygiene): `seed.test.ts` singleton opens the real DB only when that test file is run in isolation; full `bun test` is deterministic-clean. Consider a lazy DB-singleton getter or bunfig preload.
 
 ### Active
 
@@ -97,4 +98,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-23 after initialization*
+*Last updated: 2026-06-24 after Phase 1 (Backend Foundation) completion*
