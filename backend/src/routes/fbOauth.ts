@@ -28,13 +28,27 @@ import { db } from '../db/client'
 import { pages } from '../db/schema'
 
 /**
- * In-process store of pending CSRF states.
+ * In-process store of pending CSRF states → issued-at timestamp (ms).
  * Single-operator tool — no DB column needed.
  * NOTE: This store is wiped on server restart. If /callback is called after a restart
  * (mid-flow), the state mismatch returns 400 and the operator simply re-opens /authorize.
- * An optional TTL is not implemented — correctness is unaffected (state_mismatch → retry).
+ *
+ * WR-04: A TTL bounds memory growth and limits the replay window. Abandoned flows
+ * (operator closes the tab, FB denies) previously left states in the Set forever.
+ * States older than STATE_TTL_MS are rejected at /callback and evicted; stale entries
+ * are also swept on each /authorize.
  */
-const pendingStates = new Set<string>()
+const pendingStates = new Map<string, number>()  // state -> issuedAt ms
+const STATE_TTL_MS = 10 * 60 * 1000  // 10 minutes
+
+/** Evict any states that have outlived STATE_TTL_MS. */
+function sweepExpiredStates(now: number): void {
+  for (const [state, issuedAt] of pendingStates) {
+    if (now - issuedAt > STATE_TTL_MS) {
+      pendingStates.delete(state)
+    }
+  }
+}
 
 /**
  * Page-connect scopes for Dev Mode (no App Review required when operator is app admin):
@@ -58,9 +72,11 @@ export const fbOauthRoutes = new Elysia({ prefix: '/api/settings/fb-oauth' })
   .get('/authorize', ({ set }) => {
     const { appId, redirectUri } = requireFbOAuthConfig()
 
-    // Generate a CSRF state token
+    // Generate a CSRF state token, recording its issue time for TTL enforcement (WR-04).
+    const now = Date.now()
+    sweepExpiredStates(now)  // bound memory: drop abandoned-flow states
     const state = randomBytes(16).toString('hex')
-    pendingStates.add(state)
+    pendingStates.set(state, now)
 
     // Build the Facebook authorize URL
     const params = new URLSearchParams({
@@ -94,14 +110,17 @@ export const fbOauthRoutes = new Elysia({ prefix: '/api/settings/fb-oauth' })
     const code = query.code as string | undefined
     const state = query.state as string | undefined
 
-    // --- Step 1: Validate CSRF state (T-1-CSRF, T-1-REPLAY) ---
-    if (!state || !pendingStates.has(state)) {
+    // --- Step 1: Validate CSRF state (T-1-CSRF, T-1-REPLAY, WR-04 TTL) ---
+    const issuedAt = state ? pendingStates.get(state) : undefined
+    // Consume the state immediately (if present) to prevent replay (T-1-REPLAY).
+    if (state) pendingStates.delete(state)
+
+    // Reject unknown OR expired states. An expired state (older than STATE_TTL_MS)
+    // is treated the same as a mismatch — operator simply re-opens /authorize.
+    if (issuedAt === undefined || Date.now() - issuedAt > STATE_TTL_MS) {
       set.status = 400
       return { error: 'state_mismatch' }
     }
-
-    // Consume the state immediately to prevent replay (T-1-REPLAY)
-    pendingStates.delete(state)
 
     if (!code) {
       set.status = 400
