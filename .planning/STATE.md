@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-06-25T13:34:42.456Z"
-last_activity: 2026-06-25 -- Phase 02 planning complete
+stopped_at: "Phase 02-01 Task 3: awaiting human selector verification"
+last_updated: "2026-06-25T14:39:43Z"
+last_activity: "2026-06-25 -- Phase 02-01 Tasks 1+2 done; stopped at Task 3 checkpoint"
 progress:
   total_phases: 8
   completed_phases: 1
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-23)
 
 **Core value:** Given captured products, surface a ranked promote-worthiness score so the operator can confidently pick which products to promote.
-**Current focus:** Phase 2 — product capture (shopee)
+**Current focus:** Phase 02 — product-capture-shopee
 
 ## Current Position
 
-Phase: 2
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-06-25 -- Phase 02 planning complete
+Phase: 02 (product-capture-shopee) — EXECUTING
+Plan: 1 of 5 (Tasks 1+2 done, Task 3 PENDING human checkpoint)
+Status: Paused at Task 3 — human selector verification required
+Last activity: 2026-06-25 -- Phase 02-01 Tasks 1+2 executed and committed
 
 Progress: [██████████] 100%
 
@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 01-backend-foundation P01 | 8 | 3 tasks | 16 files |
 | Phase 01-backend-foundation P02 | 18 | 3 tasks | 8 files |
 | Phase 01-backend-foundation P01-05 | 35 minutes | 4 tasks | 8 files |
+| Phase 02-product-capture-shopee P01 | ~45 minutes | 2/3 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [01-05]: OAuth CSRF state in in-process Set (no DB column) — single-operator, restart wipes state, operator re-opens /authorize
 - [01-05]: redirect_uri sourced server-side only from FB_OAUTH_REDIRECT_URI (T-1-OPENREDIR mitigation)
 - [01-05]: Dev-Mode OAuth ships Phase 1; Meta App Review for pages_manage_posts stays Phase 5 deliverable
+- [02-01]: selectors.config.json in extension/public/ (not parsers/) — WXT mandates public/ for runtime.getURL(); CLAUDE.md note is approximate
+- [02-01]: happy-dom v20 has no GlobalRegistrator; use Window instance + assign DOMParser to globalThis for bun test (W1)
 
 ### Pending Todos
 
@@ -78,7 +81,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Phase 2: validate Shopee CSS selectors against a live page at plan time (research-flagged)
+- Phase 2: validate Shopee CSS selectors against a live page — ACTIVE BLOCKER (Task 3 checkpoint awaits human)
 - Phase 5→6: Meta App Review for `pages_manage_posts` takes 5–15 business days — submit at end of Phase 5
 - Phase 5: Ollama CPU inference time on Ryzen 5 1600X unverified — validate model size + timeout budget
 - Phase 8: TikTok lazy-load DOM needs its own research spike
@@ -93,6 +96,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-25T12:38:49.115Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-product-capture-shopee/02-CONTEXT.md
+Last session: 2026-06-25T14:39:43Z
+Stopped at: "Phase 02-01 Task 3 — human selector verification checkpoint"
+Resume file: .planning/phases/02-product-capture-shopee/02-01-SUMMARY.md
