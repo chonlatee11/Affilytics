@@ -14,7 +14,7 @@ Affilytics is built as eight dependency-ordered vertical slices. We start with a
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Backend Foundation** - Bun+Elysia+SQLite base, full schema, encrypted FB token, Page connect (verification 2026-06-24: gaps found — gap closure pending) (completed 2026-06-24)
-- [ ] **Phase 2: Product Capture (Shopee)** - MV3 extension captures a Shopee product into the backend
+- [x] **Phase 2: Product Capture (Shopee)** - MV3 extension captures a Shopee product into the backend (completed 2026-06-25)
 - [ ] **Phase 3: Scoring, Commission & Links** - weighted promote-worthiness score with tunable weights
 - [ ] **Phase 4: Dashboard** - ranked/filterable product table + multi-product comparison
 - [ ] **Phase 5: Captions & Approval** - template/Ollama caption drafting with #ad + approval queue
@@ -89,7 +89,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 1+2)*
 
-- [ ] 02-05-PLAN.md — background SW + popup UI 5-state flow + manual round-trip verify (CAP-01/02/03/04)
+- [x] 02-05-PLAN.md — background SW + popup UI 5-state flow + manual round-trip verify (CAP-01/02/03/04)
 
 ### Phase 3: Scoring, Commission & Links
 
@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 5/5 | Complete   | 2026-06-24 |
-| 2. Product Capture (Shopee) | 4/5 | In Progress|  |
+| 2. Product Capture (Shopee) | 5/5 | Complete   | 2026-06-25 |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |
 | 5. Captions & Approval | 0/TBD | Not started | - |
