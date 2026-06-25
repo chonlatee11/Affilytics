@@ -4,8 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Affilytics</title>
+  <!-- Noto Sans Thai: covers Thai and Latin in one typeface (ui-ux-pro-max) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS 4.3.1 via CDN (popup-only; no build-time Tailwind needed in extension) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* prefers-reduced-motion: disable spinner animation (ui-ux-pro-max CRITICAL rule) */
+    @media (prefers-reduced-motion: reduce) {
+      .animate-spin { animation: none; }
+    }
+  </style>
 </head>
-<body>
+<body style="font-family: 'Noto Sans Thai', sans-serif; width: 380px; background: #F0FDFA; margin: 0; padding: 0;">
   <div id="app"></div>
   <script type="module" src="./main.ts"></script>
 </body>
