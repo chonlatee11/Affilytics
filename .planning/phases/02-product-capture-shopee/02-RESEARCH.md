@@ -95,6 +95,7 @@ The biggest practical unknown remains the Shopee DOM selectors — Shopee's Reac
 |---------|---------|---------|-------------|
 | WXT `browser` global | (WXT built-in) | Cross-browser polyfill for `chrome.*` APIs | Always — replaces raw `chrome.*` calls; WXT injects this |
 | `public/selectors.config.json` | — | Shopee CSS selectors, editable without rebuild | Only content script reads this via `browser.runtime.getURL()` |
+| `happy-dom` | latest | DOMParser/Document shim for `bun test` (parsers.test.ts) | Dev-only — Bun's test runner has no global DOMParser; register happy-dom so fixture Documents can be built. NOT shipped in the extension bundle. |
 
 ### Alternatives Considered
 
@@ -103,6 +104,7 @@ The biggest practical unknown remains the Shopee DOM selectors — Shopee's Reac
 | `@webext-core/messaging` | Raw `chrome.runtime.sendMessage` + `return true` | Raw API requires `return true` exactly for async channels; easy to forget; no type safety |
 | `browser.runtime.getURL()` for selector config | Import JSON directly in content script bundle | Direct import bakes selectors into compiled bundle — defeats D-06 (can't edit without rebuild) |
 | `onConflictDoUpdate` | DELETE + INSERT | Two operations not atomic in SQLite without explicit transaction; upsert is single atomic write |
+| `happy-dom` (DOM shim for tests) | `linkedom`, or a hand-rolled minimal DOM mock | happy-dom registers a complete `DOMParser`/`Document`/`Window` with one call; linkedom is lighter but less complete; a hand-rolled mock is brittle against selector variety |
 
 ### Installation (extension workspace — greenfield)
 
@@ -110,9 +112,10 @@ The biggest practical unknown remains the Shopee DOM selectors — Shopee's Reac
 cd extension
 bun create wxt@latest . --template vanilla-ts
 bun add @webext-core/messaging
+bun add -d happy-dom
 ```
 
-> Note: WXT scaffold uses npm by default; override with `--pm bun` if desired. The `bun create wxt` command bootstraps the entrypoints structure and `wxt.config.ts`.
+> Note: WXT scaffold uses npm by default; override with `--pm bun` if desired. The `bun create wxt` command bootstraps the entrypoints structure and `wxt.config.ts`. `happy-dom` is a dev dependency only (test-time DOMParser shim).
 
 ---
 
@@ -124,8 +127,9 @@ bun add @webext-core/messaging
 |---------|----------|-----|-------------|-------------|-------------|
 | `wxt` | npm | ~3 yrs (2023-06-26) | github.com/wxt-dev/wxt | none | Approved |
 | `@webext-core/messaging` | npm | ~4 yrs (2022-11-07) | github.com/aklinker1/webext-core | none | Approved |
+| `happy-dom` | npm | ~5 yrs (2019-10) | github.com/capricorn86/happy-dom | none | Approved (dev-only, not shipped) |
 
-`[VERIFIED: npm registry]` — both packages confirmed via `npm view`. No suspicious postinstall scripts detected.
+`[VERIFIED: npm registry]` — packages confirmed via `npm view`. No suspicious postinstall scripts detected.
 
 **Packages removed due to slopcheck [SLOP] verdict:** none
 **Packages flagged as suspicious [SUS]:** none
@@ -161,7 +165,7 @@ Operator (Chrome browser)
 │    2. MutationObserver → wait for DOM ready          │   │  at TOP LEVEL (sync) │
 │    3. Parse DOM → normalize → return RawProduct      │◄──┤                      │
 │                                                      │   │  onMessage('save'):  │
-└──────────────────────────────────────────────────────┘   │    fetch(localhost)──┼──► POST /api/products/capture
+└──────────────────────────────────────────────────────┘   │    fetch(127.0.0.1)──┼──► POST /api/products/capture
                                                            │    return result     │         │
                                                            └──────────────────────┘         ▼
                                                                                   ┌──────────────────┐
@@ -186,7 +190,7 @@ Operator (Chrome browser)
 ```
 extension/                          # WXT workspace root (greenfield)
 ├── wxt.config.ts                   # host_permissions, manifest, web_accessible_resources
-├── package.json                    # bun workspace; wxt + @webext-core/messaging
+├── package.json                    # bun workspace; wxt + @webext-core/messaging + happy-dom (dev)
 ├── tsconfig.json                   # WXT-generated
 ├── public/
 │   └── selectors.config.json       # Shopee CSS selectors (editable without rebuild)
@@ -301,7 +305,9 @@ export default defineBackground(() => {
   onMessage('saveProduct', async (message) => {
     const data = message.data
     try {
-      const res = await fetch('http://localhost:3000/api/products/capture', {
+      // NOTE: use 127.0.0.1 (not localhost) — the Phase 1 backend binds 127.0.0.1 only.
+      // This snippet historically showed `localhost`; the plans correct it to 127.0.0.1.
+      const res = await fetch('http://127.0.0.1:3000/api/products/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -498,6 +504,8 @@ bun run migrate:run
 
 The generated SQL will be an `ALTER TABLE` or equivalent unique index creation. SQLite does not support `ADD CONSTRAINT` — drizzle-kit generates a `CREATE UNIQUE INDEX` statement instead.
 
+> **In-memory test note (B1):** `openDatabase(':memory:')` resolves `:memory:` to a unique temp FILE and APPLIES the committed migrations at open time. The generated `0001` migration MUST be committed so the in-memory test DB used by `products.test.ts` also carries the UNIQUE(product_url) index — otherwise `onConflictDoUpdate` would fail or silently duplicate in tests.
+
 ---
 
 ### Pattern 8: Backend Capture Endpoint
@@ -578,12 +586,15 @@ app.use(productsRoutes)
 ### Anti-Patterns to Avoid
 
 - **Content script fetch to localhost directly:** Content scripts on HTTPS Shopee pages cannot `fetch('http://localhost:3000/...')` — this is blocked as a mixed-content upgrade. ALL backend calls must go via `sendMessage` → background SW.
+- **Using `localhost` instead of `127.0.0.1` in the background fetch:** The Phase 1 backend binds `127.0.0.1` only. The background SW must fetch `http://127.0.0.1:3000/...` — a `localhost` URL can fail to connect on some setups. (Pattern 3's `localhost` snippet is illustrative; the plans use `127.0.0.1`.)
 - **`onMessage` inside an async function in background.ts:** The Chrome runtime registers service worker event listeners only during synchronous startup. If registration happens after an `await`, Chrome cannot dispatch events to that listener. Use `@webext-core/messaging` which registers synchronously.
 - **Baking selectors into the compiled bundle:** Using `import selectors from './selectors.config.json'` bundles the JSON — editing it requires a rebuild. Use `browser.runtime.getURL('/selectors.config.json')` + `fetch()` at runtime. The file must be in `public/` (not `assets/`).
 - **Missing `web_accessible_resources` declaration:** `selectors.config.json` in `public/` is still blocked from content script access without an explicit `web_accessible_resources` entry in `wxt.config.ts`.
 - **`drizzle-kit push` instead of generate+migrate:** Project uses tracked migrations (CLAUDE.md D-07 from Phase 1). Run `bun run migrate:generate` then `bun run migrate:run`. Never use `drizzle-kit push` in this project.
+- **Uncommitted migration breaks the in-memory test:** `openDatabase(':memory:')` applies committed migrations to the temp-file test DB. If the `0001` UNIQUE migration is not committed, the upsert test runs against a DB without the unique index → `onConflictDoUpdate` fails or duplicates (B1).
 - **`better-sqlite3` in extension:** Not applicable here — extension has no SQLite access. This anti-pattern is backend-only.
 - **Forgetting `import.meta.main` guard:** Any new code in `backend/index.ts` that adds side effects (DB writes, port binds) must be inside the `if (import.meta.main)` block to avoid test pollution.
+- **Relying on a global `DOMParser` in `bun test`:** Bun's test runner has no `DOMParser`/`Document`. Register `happy-dom` (dev dep) before building fixture Documents in parsers.test.ts.
 
 ---
 
@@ -596,6 +607,7 @@ app.use(productsRoutes)
 | Extension HMR during dev | Custom reload scripts | WXT `Alt+R` shortcut + `bun run dev` in extension/ | WXT registers HMR automatically; manual reload shortcut built-in |
 | Cross-browser extension API shims | Polyfill `chrome.*` vs `browser.*` | WXT's `browser` global | WXT injects a unified `browser` API polyfill that works on Chrome and Firefox |
 | SQL upsert conflict handling | Manual SELECT → INSERT or UPDATE | `db.insert().onConflictDoUpdate()` | Atomic single statement; avoids TOCTOU race on concurrent captures |
+| DOM in `bun test` | Hand-rolled element mocks | `happy-dom` global registrator | Provides a real `DOMParser`/`Document`/`Window`; fixtures behave like a browser DOM |
 
 **Key insight:** The extension plumbing (messaging, manifest, HMR) is exactly where DIY solutions break in subtle ways specific to MV3 service worker lifecycle. WXT and `@webext-core/messaging` encode the correct patterns; hand-rolling reintroduces known bugs.
 
@@ -606,8 +618,8 @@ app.use(productsRoutes)
 ### Pitfall 1: Content Script Mixed-Content Block
 **What goes wrong:** `fetch('http://localhost:3000/...')` called from content script on a Shopee HTTPS page throws a network error or is silently blocked. Capture appears to do nothing.
 **Why it happens:** Browsers enforce mixed-content rules — HTTPS pages cannot make HTTP subrequests. Content scripts inherit the page's security context.
-**How to avoid:** ALL backend calls go through `sendMessage('saveProduct', data)` → background SW → `fetch('http://localhost:3000/...')`. Background SW runs in the extension's own origin, not the page's.
-**Warning signs:** Network panel shows no request to localhost; content script console shows `TypeError: Failed to fetch`.
+**How to avoid:** ALL backend calls go through `sendMessage('saveProduct', data)` → background SW → `fetch('http://127.0.0.1:3000/...')`. Background SW runs in the extension's own origin, not the page's.
+**Warning signs:** Network panel shows no request to the backend; content script console shows `TypeError: Failed to fetch`.
 
 ### Pitfall 2: Async onMessage Registration in Background
 **What goes wrong:** `onMessage` registered inside an `async` function or after an `await`. Messages from popup are silently dropped when the service worker restarts.
@@ -630,7 +642,7 @@ app.use(productsRoutes)
 ### Pitfall 5: Drizzle Upsert Fails Without UNIQUE Constraint
 **What goes wrong:** `onConflictDoUpdate({ target: products.productUrl })` throws `no conflict target specified` or silently fails.
 **Why it happens:** Drizzle's `onConflictDoUpdate` requires a UNIQUE index on the target column. The Phase 1 migration created `products.product_url` as `NOT NULL` but without `UNIQUE`.
-**How to avoid:** Run the Phase 2 migration (add `UNIQUE` index) before deploying the capture endpoint. Migration must precede any upsert attempt.
+**How to avoid:** Run the Phase 2 migration (add `UNIQUE` index) before deploying the capture endpoint. Migration must precede any upsert attempt — and must be committed so `openDatabase()` applies it to in-memory test DBs too (B1).
 **Warning signs:** `LibsqlError: UNIQUE constraint failed` (on insert) OR no error but duplicates appear in DB.
 
 ### Pitfall 6: Shopee Selector Staleness
@@ -743,7 +755,7 @@ export const { sendMessage, onMessage } = defineExtensionMessaging<ProtocolMap>(
 // Source: https://developer.chrome.com/docs/extensions/develop/concepts/messaging [VERIFIED: official docs]
 // Raw chrome API pattern (shown for reference; @webext-core/messaging handles this internally):
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  fetch('http://localhost:3000/api/products/capture', { method: 'POST', ... })
+  fetch('http://127.0.0.1:3000/api/products/capture', { method: 'POST', ... })
     .then(r => r.json())
     .then(data => sendResponse({ ok: true, data }))
   return true   // CRITICAL: keep channel open for async sendResponse
@@ -813,26 +825,30 @@ export default defineContentScript({
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Popup framework: vanilla TypeScript or React?**
    - What we know: WXT supports both. Project uses React (Next.js) for frontend.
    - What's unclear: Operator preference; React adds ~200KB to popup bundle.
    - Recommendation: Use vanilla TypeScript for popup (simpler, faster, smaller). If shared component library with dashboard is desired, revisit in Phase 4.
+   - **RESOLVED:** vanilla TypeScript + Tailwind per 02-UI-SPEC.md Framework Decision. No React in the popup for Phase 2.
 
 2. **WXT version: pin at 0.20.26 (CLAUDE.md) or use current 0.20.27?**
    - What we know: 0.20.27 is latest (released 2026-06-23). CLAUDE.md locks 0.20.26.
    - What's unclear: Whether 0.20.27 has any breaking changes relevant to this phase.
    - Recommendation: Use 0.20.26 as specified in CLAUDE.md (locked decision). The difference is a patch.
+   - **RESOLVED:** 0.20.26 per CLAUDE.md locked stack. Pinned in extension/package.json.
 
 3. **Shopee mobile vs. desktop product page URL pattern?**
    - What we know: `shopee.co.th` is the desktop site; `m.shopee.co.th` is mobile.
    - What's unclear: Whether operators use mobile URLs in practice.
    - Recommendation: Target `*://shopee.co.th/*` for Phase 2. Add `*://m.shopee.co.th/*` if needed (config change only).
+   - **RESOLVED:** Phase 2 targets shopee.co.th desktop only; m.shopee.co.th is deferred (config-only addition later if needed).
 
 4. **Review form: use shadow DOM or plain DOM injection?**
    - What we know: Popup is in its own HTML context — no injection needed. Content script only reads DOM, does not inject UI (D-01).
    - Clarification: This is NOT an issue — popup is a separate HTML page, not injected into the Shopee page. No shadow DOM needed.
+   - **RESOLVED:** Not applicable — the popup is a separate HTML page (entrypoints/popup); there is no on-page DOM injection (D-01 popup-only). No shadow DOM required.
 
 ---
 
@@ -844,6 +860,7 @@ export default defineContentScript({
 | Node.js | npm view / WXT tooling | ✓ | v24.10.0 | — |
 | Chrome (extension loading) | Live Shopee selector verification | [assumed ✓] | unknown | — |
 | WXT (to be installed) | Extension scaffold | not yet | 0.20.26 target | — |
+| happy-dom (to be installed) | parsers.test.ts DOMParser shim | not yet | latest (dev dep) | linkedom or hand-rolled mock |
 | Backend (Phase 1) | Capture endpoint target | ✓ | — | — |
 | SQLite (bun:sqlite) | Drizzle upsert | ✓ | built-in bun 1.3.14 | — |
 | Ollama | NOT needed in Phase 2 | n/a | — | — |
@@ -853,6 +870,7 @@ export default defineContentScript({
 
 **Missing dependencies with fallback:**
 - WXT (needs `bun create wxt`) — install at Wave 0 task.
+- happy-dom (needs `bun add -d happy-dom`) — install at Wave 0 task; linkedom is the fallback DOM shim.
 
 ---
 
@@ -874,10 +892,10 @@ export default defineContentScript({
 
 | Req ID | Behavior | Test Type | Automated Command | Notes |
 |--------|----------|-----------|-------------------|-------|
-| CAP-01 | Shopee DOM parsed into RawProduct | unit | `cd extension && bun test lib/parsers.test.ts` | Tests normalizer + parser with mock DOM |
+| CAP-01 | Shopee DOM parsed into RawProduct | unit | `cd extension && bun test lib/parsers.test.ts` | Tests normalizer + parser with happy-dom fixture DOM |
 | CAP-01 | N/N fields captured summary correct | unit | `cd extension && bun test lib/normalizer.test.ts` | Count null vs non-null fields |
-| CAP-02 | POST /api/products/capture persists product | integration | `cd backend && bun test src/routes/products.test.ts` | Test with in-memory SQLite (existing pattern) |
-| CAP-02 | Upsert updates existing row on same productUrl | integration | `cd backend && bun test src/routes/products.test.ts` | Insert twice, verify single row updated |
+| CAP-02 | POST /api/products/capture persists product | integration | `cd backend && bun test src/routes/products.test.ts` | Test with migrated in-memory SQLite (openDatabase(':memory:') applies migrations) |
+| CAP-02 | Upsert updates existing row on same productUrl | integration | `cd backend && bun test src/routes/products.test.ts` | Insert twice, verify single row updated — proves UNIQUE index present in test DB (B1) |
 | CAP-03 | Null fields do not fail capture, stored as null | integration | `cd backend && bun test src/routes/products.test.ts` | Payload with null rating/reviewCount/salesCount |
 | CAP-04 | Paste-URL creates basic product record | integration | `cd backend && bun test src/routes/products.test.ts` | Minimal payload: only platform + productUrl |
 | CAP-05 | selectors.config.json parseable JSON | unit | `cd extension && bun test lib/selectors.test.ts` | JSON.parse + schema validation |
@@ -892,10 +910,11 @@ export default defineContentScript({
 
 ### Wave 0 Gaps
 - [ ] `extension/` — WXT scaffold does not exist; create via `bun create wxt@0.20.26 .`
-- [ ] `backend/src/routes/products.test.ts` — does not exist yet; covers CAP-02, CAP-03, CAP-04
+- [ ] `happy-dom` — DOMParser shim not installed; `bun add -d happy-dom` for parsers.test.ts
+- [ ] `backend/src/routes/products.test.ts` — does not exist yet; covers CAP-02, CAP-03, CAP-04 (migrated in-memory DB — B1)
 - [ ] `extension/lib/normalizer.test.ts` — does not exist; covers D-09 edge cases
-- [ ] `extension/lib/parsers.test.ts` — does not exist; covers CAP-01 with mock document
-- [ ] `backend/drizzle/0001_*.sql` — migration not yet generated; needed before any capture test
+- [ ] `extension/lib/parsers.test.ts` — does not exist; covers CAP-01 with happy-dom fixture document
+- [ ] `backend/drizzle/0001_*.sql` — migration not yet generated; needed before any capture test (and must be committed for the in-memory test — B1)
 
 ---
 
@@ -936,9 +955,9 @@ export default defineContentScript({
 - **ORM:** Drizzle ORM 0.45.2 with `drizzle-orm/bun-sqlite` import path — never `better-sqlite3` or Prisma
 - **Messaging:** `@webext-core/messaging` 3.0.2 — not raw `chrome.runtime.sendMessage`
 - **Content scripts:** `world: 'ISOLATED'` (default) — no `MAIN` world access needed
-- **Selectors:** `parsers/selectors.config.json` outside compiled bundle (D-06)
+- **Selectors:** `selectors.config.json` outside compiled bundle in `public/` (D-06; CLAUDE.md names `parsers/` but WXT mandates `public/` for runtime.getURL access — see 02-01 W3)
 - **No external APIs:** Capture reads operator-opened pages only; no mass scraping
-- **Localhost only:** Extension communicates to `http://localhost:3000` (or configured port) only
+- **Localhost only:** Extension communicates to `http://127.0.0.1:3000` (backend binds 127.0.0.1) only
 - **Migrations:** `drizzle-kit generate` + `migrate:run` — never `drizzle-kit push`
 - **TypeScript:** All layers (extension, backend, frontend) share types via workspace
 - **Test runner:** `bun test` — no Jest
@@ -958,7 +977,7 @@ export default defineContentScript({
 - `github.com/aklinker1/webext-core/packages/messaging README` — defineExtensionMessaging usage
 
 ### Secondary (MEDIUM confidence)
-- npm registry: WXT 0.20.27 (latest; pin 0.20.26 per CLAUDE.md), `@webext-core/messaging` 3.0.2 — confirmed current via `npm view`
+- npm registry: WXT 0.20.27 (latest; pin 0.20.26 per CLAUDE.md), `@webext-core/messaging` 3.0.2, `happy-dom` — confirmed current via `npm view`
 - Chrome for Developers: `https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts` — ISOLATED world, mixed-content context
 
 ### Tertiary (LOW confidence — Shopee selectors)
