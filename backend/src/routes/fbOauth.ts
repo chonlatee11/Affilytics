@@ -24,8 +24,7 @@ import { randomBytes } from 'node:crypto'
 import { requireFbOAuthConfig } from '../../env'
 import { exchangeCodeForToken, getPageAccessToken } from '../services/fbService'
 import { encrypt } from '../services/cryptoService'
-import { db } from '../db/client'
-import { pages } from '../db/schema'
+import { connectPage } from '../services/pagesService'
 
 /**
  * In-process store of pending CSRF states → issued-at timestamp (ms).
@@ -152,28 +151,11 @@ export const fbOauthRoutes = new Elysia({ prefix: '/api/settings/fb-oauth' })
     // --- Step 4: Encrypt and store (T-1-EXPOSE: pageToken encrypted before persistence) ---
     const accessTokenEnc = encrypt(pageToken)  // AES-256-GCM
 
-    // WR-02: Enforce the single-operator "one connected page" invariant via replace-on-connect.
-    // A bare onConflictDoUpdate(target: fbPageId) only updates when the SAME page reconnects;
-    // connecting a DIFFERENT page (new fbPageId, fresh UUID id) would INSERT a second row and
-    // break the single-row assumption GET /api/settings relies on. Deleting first guarantees
-    // exactly one row regardless of which page is connected (single-operator local tool — safe).
-    //
-    // WR-06 / TODO(Phase 5 FB Publishing): the OAuth flow already obtains a real page/user
-    // token whose `data_access_expires_at` is retrievable via Graph (debug_token /
-    // fields=data_access_expires_at). It is currently discarded, so the dashboard cannot
-    // warn before the token silently expires (CLAUDE.md Known Constraint #3). Persist the
-    // real expiry here once getPageAccessToken surfaces it.
-    // Atomic replace-on-connect: delete + insert in a single transaction so a failure between
-    // them can never leave the pages table empty (data-loss window). Mirrors settings.ts.
-    db.transaction((tx) => {
-      tx.delete(pages).run()
-      tx.insert(pages).values({
-        fbPageId: pageId,
-        pageName,
-        accessTokenEnc,
-        dataAccessExpiresAt: null,  // TODO(Phase 5): persist real expiry from debug_token (WR-06)
-      }).run()
-    })
+    // Atomically replace the single pages row (WR-02 single-row invariant).
+    // WR-06 / TODO(Phase 5): the OAuth flow can surface `data_access_expires_at` via debug_token;
+    // pass it to connectPage() once getPageAccessToken returns it so the dashboard can warn
+    // before the token expires (CLAUDE.md Known Constraint #3). Stored null until then.
+    connectPage({ fbPageId: pageId, pageName, accessTokenEnc })
 
     // --- Step 5: Return confirmation WITHOUT the token (T-1-EXPOSE) ---
     return {

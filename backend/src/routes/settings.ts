@@ -14,6 +14,7 @@ import { db } from '../db/client'
 import { pages, settings } from '../db/schema'
 import { verifyToken } from '../services/fbService'
 import { encrypt, decrypt } from '../services/cryptoService'
+import { connectPage } from '../services/pagesService'
 
 export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
 
@@ -39,28 +40,12 @@ export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
       // Step 2: Encrypt the token using AES-256-GCM (T-1-EXPOSE)
       const accessTokenEnc = encrypt(accessToken)
 
-      // Step 3: Replace the single pages row (single-operator tool — one connected page).
-      // WR-02: A bare onConflictDoUpdate(target: fbPageId) only updates when the SAME page
-      // reconnects; connecting a DIFFERENT page (new fbPageId, fresh UUID id) would INSERT a
-      // second row and break the single-row invariant GET /api/settings relies on. Deleting
-      // first guarantees exactly one row regardless of which page is connected.
-      //
-      // WR-06 / TODO(Phase 5 FB Publishing): populate dataAccessExpiresAt so the dashboard
-      // can warn the operator before the token silently expires (CLAUDE.md Known Constraint #3:
-      // FB tokens expire ~60 days). The manual /me paste flow does not expose expiry; this
-      // requires fetching `data_access_expires_at` via debug_token. Stored null until then.
-      // Atomic replace-on-connect: delete + insert run in a single transaction so a failure
-      // (constraint error, crash) between the two statements can never leave the pages table
-      // empty — the operator is never silently disconnected with no recovery. bun:sqlite's
-      // transaction callback is synchronous.
-      db.transaction((tx) => {
-        tx.delete(pages).run()
-        tx.insert(pages).values({
-          fbPageId:            result.pageId,
-          pageName:            result.pageName,
-          accessTokenEnc,
-          dataAccessExpiresAt: null,  // TODO(Phase 5): /me paste flow has no expiry; debug_token needed (WR-06)
-        }).run()
+      // Step 3: Replace the single pages row atomically (WR-02 single-row invariant).
+      // The /me paste flow has no expiry — stored null until debug_token is wired (WR-06, Phase 5).
+      connectPage({
+        fbPageId:       result.pageId,
+        pageName:       result.pageName,
+        accessTokenEnc,
       })
 
       // Step 4: Return confirmation WITHOUT the token (T-1-EXPOSE)
