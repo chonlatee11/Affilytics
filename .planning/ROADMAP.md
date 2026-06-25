@@ -69,13 +69,27 @@ Plans:
   3. Operator can paste a product URL to create a basic product record
   4. Shopee CSS selectors live in an editable config file that can be changed without rebuilding core logic
 
-**Plans**: TBD
+**Plans**: 5 plans (4 waves)
 
 Notes: Content script MUST NOT fetch localhost directly (mixed-content block) — route via `chrome.runtime.sendMessage` → background `fetch()` (research pitfall #1). Register `onMessage` synchronously at top level of `background.ts` (pitfall #2). Use `MutationObserver` with timeout for Shopee's async/SPA DOM (pitfall #6). Declare `"http://localhost/*"` in host_permissions. Research-flag: validate selectors against a live Shopee page at plan time.
 
 Plans:
+**Wave 0** *(prerequisites)*
 
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md — WXT scaffold + RED test scaffolds + live Shopee selector verification (research flag)
+
+**Wave 1** *(parallel: backend + extension utils)*
+
+- [ ] 02-02-PLAN.md — backend capture endpoint + UNIQUE(product_url) migration + upsert (CAP-02/03/04)
+- [ ] 02-03-PLAN.md — D-09 normalizer + typed @webext-core messaging protocol (CAP-01)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 02-04-PLAN.md — Shopee parser (MutationObserver) + content script runtime selector load (CAP-01/03/05)
+
+**Wave 3** *(blocked on Wave 1+2)*
+
+- [ ] 02-05-PLAN.md — background SW + popup UI 5-state flow + manual round-trip verify (CAP-01/02/03/04)
 
 ### Phase 3: Scoring, Commission & Links
 
