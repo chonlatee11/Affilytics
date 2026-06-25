@@ -3,13 +3,12 @@
  *
  * Boot order (RESEARCH § System Architecture Diagram):
  *   1. requireEncryptionKey() — fail-fast if BUN_ENCRYPTION_KEY missing (D-03, T-1-KEY)
- *   2. import db — opening it sets PRAGMAs (WAL + busy_timeout) before drizzle() wraps
- *      and applies migrations via openDatabase() (single migrate path — no WR-01 double-migrate)
- *   3. seedDefaultSettings() — idempotent default settings row (D-08)
- *   4. Elysia app on 127.0.0.1:3000 — LAN-unreachable (FOUND-03, T-1-LAN)
- *   5. CORS allowlist: localhost dashboard + chrome-extension origin (T-1-CORS)
- *   6. .listen() — only when run as main entry (import.meta.main); importing this module
- *      in tests does NOT bind port 3000.
+ *   2. import db (via routes) — opening it sets PRAGMAs (WAL + busy_timeout) before drizzle()
+ *      wraps and applies migrations via openDatabase() (single migrate path — no WR-01 double-migrate)
+ *   3. Elysia app on 127.0.0.1:PORT — LAN-unreachable (FOUND-03, T-1-LAN)
+ *   4. CORS allowlist: localhost dashboard + chrome-extension origin (T-1-CORS)
+ *   5. seedDefaultSettings() + .listen() — only when run as main entry (import.meta.main);
+ *      importing this module in tests does NOT bind the port and does NOT write the seed row.
  *
  * FOUND-01: GET /health returns 200.
  * FOUND-03: bound to 127.0.0.1 only (not 0.0.0.0).
@@ -31,12 +30,8 @@ import swagger from '@elysiajs/swagger'
 // Deferring those imports until after requireEncryptionKey() preserves the invariant.
 requireEncryptionKey()
 
-// Step 2: Idempotent default settings seed (importing seed → client opens the DB singleton
-// with PRAGMAs + migrations — now guaranteed to happen AFTER the key check above)
-const { seedDefaultSettings } = await import('./seed')
-await seedDefaultSettings()
-
-// Steps 4-6: Create Elysia app bound to 127.0.0.1 (Pitfall 4: never 0.0.0.0)
+// Steps 2-4: Create Elysia app bound to 127.0.0.1 (Pitfall 4: never 0.0.0.0).
+// Importing the route modules opens the db singleton (after the key check above).
 const { healthRoutes } = await import('./src/routes/health')
 const { settingsRoutes } = await import('./src/routes/settings')
 const { fbOauthRoutes } = await import('./src/routes/fbOauth')
@@ -46,21 +41,27 @@ const { fbOauthRoutes } = await import('./src/routes/fbOauth')
 // rather than silently binding port 0 (random ephemeral) or NaN.
 const PORT = resolvePort()
 
+// CORS allowlist: dashboard origin(s) + chrome-extension. The dashboard origin is configurable
+// via DASHBOARD_ORIGIN (comma-separated) because the backend and a Next.js dev server both
+// default to :3000 — the operator may need to run the dashboard on another port, which would
+// otherwise be blocked by a hardcoded allowlist.
+const dashboardOrigins = (
+  process.env.DASHBOARD_ORIGIN ?? 'http://localhost:3000,http://localhost:5173'
+)
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
 export const app = new Elysia({
   serve: {
     hostname: '127.0.0.1',
     port: PORT,
   },
 })
-  // CORS allowlist: localhost dashboard + chrome-extension origin
   // Pitfall 5: chrome-extension:// is a special origin — must use regex, not a plain string
   .use(
     cors({
-      origin: [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        /^chrome-extension:\/\//,
-      ],
+      origin: [...dashboardOrigins, /^chrome-extension:\/\//],
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: false,
     })
@@ -72,9 +73,13 @@ export const app = new Elysia({
   .use(settingsRoutes)
   .use(fbOauthRoutes)  // SET-01 / Gap 4: OAuth Page-connect flow (Dev Mode)
 
-// Listen only when run as the main entry point (bun run index.ts).
-// When imported by tests, this block is skipped — no accidental port 3000 bind.
+// Seed + listen only when run as the main entry point (bun run index.ts).
+// When imported by tests, this block is skipped — no port bind AND no settings-row write
+// (seedDefaultSettings performs a DB INSERT; running it on every test import is an unwanted
+// side effect, so it lives behind the import.meta.main guard alongside .listen()).
 if (import.meta.main) {
+  const { seedDefaultSettings } = await import('./seed')
+  await seedDefaultSettings()
   app.listen(PORT)
   console.log(
     `Listening on http://${app.server?.hostname}:${app.server?.port}`
