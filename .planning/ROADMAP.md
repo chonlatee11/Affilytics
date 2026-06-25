@@ -85,7 +85,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 02-04-PLAN.md — Shopee parser (MutationObserver) + content script runtime selector load (CAP-01/03/05)
+- [x] 02-04-PLAN.md — Shopee parser (MutationObserver) + content script runtime selector load (CAP-01/03/05)
 
 **Wave 3** *(blocked on Wave 1+2)*
 
@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 5/5 | Complete   | 2026-06-24 |
-| 2. Product Capture (Shopee) | 3/5 | In Progress|  |
+| 2. Product Capture (Shopee) | 4/5 | In Progress|  |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |
 | 5. Captions & Approval | 0/TBD | Not started | - |

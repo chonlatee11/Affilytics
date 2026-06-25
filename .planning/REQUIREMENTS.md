@@ -19,7 +19,7 @@ Requirements for the MVP (US-1..US-6 + foundation). Each maps to a roadmap phase
 - [x] **CAP-02**: Captured data is sent to the localhost backend and persisted *(FR-M1-2)*
 - [x] **CAP-03**: Fields that cannot be read are left empty for later manual entry without failing the whole capture *(FR-M1-3)*
 - [x] **CAP-04**: Operator can paste a product URL to create a basic product record as a fallback *(FR-M1-4)*
-- [ ] **CAP-05**: Platform CSS selectors live in an editable config file so the operator can fix them when a site changes *(NFR-3, C-3)*
+- [x] **CAP-05**: Platform CSS selectors live in an editable config file so the operator can fix them when a site changes *(NFR-3, C-3)*
 
 ### Scoring
 
@@ -121,7 +121,7 @@ Phase mapping is finalized by the roadmapper. Initial proposed mapping:
 | CAP-02 | Phase 2 | Complete |
 | CAP-03 | Phase 2 | Complete |
 | CAP-04 | Phase 2 | Complete |
-| CAP-05 | Phase 2 | Pending |
+| CAP-05 | Phase 2 | Complete |
 | SCORE-01 | Phase 3 | Pending |
 | SCORE-02 | Phase 3 | Pending |
 | SCORE-03 | Phase 3 | Pending |
