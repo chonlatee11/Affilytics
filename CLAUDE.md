@@ -4,6 +4,12 @@
 
 **Affilytics** is an affiliate product analytics and management tool designed to help content creators analyze products from e-commerce platforms (Shopee, Lazada, TikTok) and decide which ones are worth promoting. It combines a browser extension for product data capture with a local backend that scores products, manages affiliate links, drafts captions, and publishes to Facebook.
 
+## Conversation Guidelines
+
+- Always respond in Thai (TH).
+- Always ask in Thai (TH).
+- Never answer in English (EN).
+
 ### What Problem Does It Solve?
 
 When running an affiliate business on social media, creators spend time manually evaluating products:
