@@ -16,7 +16,7 @@ import { Database } from 'bun:sqlite'
 import { drizzle, BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite'
 import * as schema from './schema'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
-import { mkdirSync, unlinkSync } from 'node:fs'
+import { mkdirSync, unlinkSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -91,27 +91,25 @@ export function openDatabase(path?: string): AppDatabase {
 
   // Apply tracked SQL migrations synchronously (bun-sqlite migrator is NOT async).
   // D-07: generate+migrate, never drizzle-kit push.
-  // Only run migrations for non-memory DBs (file-based) to avoid drizzle-kit journal
-  // issues; in-memory DBs used by tests run migrations too (needed for schema tests).
-  try {
-    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER })
-  } catch (err) {
-    // Now that drizzle/ is committed, a migration failure on a real file-based DB is
-    // a genuine boot-time schema error and MUST be loud (WR-02): swallowing it would
-    // leave the server "successfully" booting into a tableless, broken state.
-    // Only tolerate the "migrations not generated yet" case for in-memory/test DBs,
-    // where client.ts may be imported before SQL files exist.
-    if (!isMemory) throw err
-    const message = err instanceof Error ? err.message : String(err)
-    const isMissingMigrations =
-      message.includes('no such file') ||
-      message.includes('ENOENT') ||
-      message.includes('Cannot find module') ||
-      message.includes("Can't find meta/_journal.json")
-    if (!isMissingMigrations) {
-      throw err
-    }
+  //
+  // Detect migration availability STRUCTURALLY (is the journal file present?) instead of
+  // calling migrate() and string-matching the thrown error to decide whether it was a real
+  // failure. String-matching (WR-02) silently swallowed any error whose message happened to
+  // contain "no such file"/"ENOENT", and a Drizzle/Bun version that reworded its "missing
+  // migrations" error would re-break the test path with no signal. With the journal check,
+  // migrate() errors always propagate loudly.
+  const journalPath = join(MIGRATIONS_FOLDER, 'meta', '_journal.json')
+  if (existsSync(journalPath)) {
+    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER })  // any failure here is loud
+  } else if (!isMemory) {
+    // A real file-based boot with no generated migrations is a genuine error — never boot
+    // into a tableless, broken state.
+    throw new Error(
+      `Migrations journal not found at ${journalPath}. ` +
+      `Run \`bunx drizzle-kit generate\` to create migrations before starting the server.`,
+    )
   }
+  // else: in-memory/test DB imported before migrations were generated — nothing to apply yet.
 
   return db
 }
