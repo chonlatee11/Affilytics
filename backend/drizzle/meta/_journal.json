@@ -8,6 +8,13 @@
       "when": 1782301427197,
       "tag": "0000_lyrical_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1782395765955,
+      "tag": "0001_wild_the_watchers",
+      "breakpoints": true
     }
   ]
 }

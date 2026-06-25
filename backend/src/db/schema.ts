@@ -20,7 +20,7 @@ export const products = sqliteTable('products', {
   reviewCount:  integer('review_count'),
   salesCount:   integer('sales_count'),
   shop:         text('shop'),
-  productUrl:   text('product_url').notNull(),
+  productUrl:   text('product_url').notNull().unique(),
   capturedAt:   integer('captured_at', { mode: 'timestamp' }).notNull()
                   .default(sql`(unixepoch())`),
 })

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `products_product_url_unique` ON `products` (`product_url`);
