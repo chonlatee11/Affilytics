@@ -49,12 +49,18 @@ export const settingsRoutes = new Elysia({ prefix: '/api/settings' })
       // can warn the operator before the token silently expires (CLAUDE.md Known Constraint #3:
       // FB tokens expire ~60 days). The manual /me paste flow does not expose expiry; this
       // requires fetching `data_access_expires_at` via debug_token. Stored null until then.
-      await db.delete(pages)
-      await db.insert(pages).values({
-        fbPageId:            result.pageId,
-        pageName:            result.pageName,
-        accessTokenEnc,
-        dataAccessExpiresAt: null,  // TODO(Phase 5): /me paste flow has no expiry; debug_token needed (WR-06)
+      // Atomic replace-on-connect: delete + insert run in a single transaction so a failure
+      // (constraint error, crash) between the two statements can never leave the pages table
+      // empty — the operator is never silently disconnected with no recovery. bun:sqlite's
+      // transaction callback is synchronous.
+      db.transaction((tx) => {
+        tx.delete(pages).run()
+        tx.insert(pages).values({
+          fbPageId:            result.pageId,
+          pageName:            result.pageName,
+          accessTokenEnc,
+          dataAccessExpiresAt: null,  // TODO(Phase 5): /me paste flow has no expiry; debug_token needed (WR-06)
+        }).run()
       })
 
       // Step 4: Return confirmation WITHOUT the token (T-1-EXPOSE)

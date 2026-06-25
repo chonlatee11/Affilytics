@@ -137,7 +137,11 @@ export const fbOauthRoutes = new Elysia({ prefix: '/api/settings/fb-oauth' })
     const { userToken } = exchangeResult  // T-1-EXPOSE: never log or return this
 
     // --- Step 3: Resolve Page access token ---
-    const pageResult = await getPageAccessToken(userToken)
+    // FB_PAGE_ID (optional, server-side env) disambiguates which Page to connect when the
+    // operator administers more than one. Without it, getPageAccessToken connects the single
+    // Page if there is exactly one, and otherwise errors instead of guessing.
+    const expectedPageId = process.env.FB_PAGE_ID || undefined
+    const pageResult = await getPageAccessToken(userToken, expectedPageId)
     if (!pageResult.ok) {
       set.status = 422
       return { error: 'page_token_failed' }
@@ -159,12 +163,16 @@ export const fbOauthRoutes = new Elysia({ prefix: '/api/settings/fb-oauth' })
     // fields=data_access_expires_at). It is currently discarded, so the dashboard cannot
     // warn before the token silently expires (CLAUDE.md Known Constraint #3). Persist the
     // real expiry here once getPageAccessToken surfaces it.
-    await db.delete(pages)
-    await db.insert(pages).values({
-      fbPageId: pageId,
-      pageName,
-      accessTokenEnc,
-      dataAccessExpiresAt: null,  // TODO(Phase 5): persist real expiry from debug_token (WR-06)
+    // Atomic replace-on-connect: delete + insert in a single transaction so a failure between
+    // them can never leave the pages table empty (data-loss window). Mirrors settings.ts.
+    db.transaction((tx) => {
+      tx.delete(pages).run()
+      tx.insert(pages).values({
+        fbPageId: pageId,
+        pageName,
+        accessTokenEnc,
+        dataAccessExpiresAt: null,  // TODO(Phase 5): persist real expiry from debug_token (WR-06)
+      }).run()
     })
 
     // --- Step 5: Return confirmation WITHOUT the token (T-1-EXPOSE) ---

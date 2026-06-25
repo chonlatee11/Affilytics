@@ -190,17 +190,28 @@ export async function exchangeCodeForToken(code: string): Promise<ExchangeCodeRe
 }
 
 /**
- * getPageAccessToken(userToken) — resolves the operator's Page access token from /me/accounts.
+ * getPageAccessToken(userToken, expectedPageId?) — resolves the operator's Page access token
+ * from /me/accounts.
  *
  * Calls GET https://graph.facebook.com/v22.0/me/accounts?access_token=<userToken>
- * Returns the first Page in the response (single-operator tool).
+ *
+ * Page selection (avoids silently connecting the WRONG page when the operator administers more
+ * than one Page — the OAuth callback has no operator-facing page picker):
+ *   - If expectedPageId is given, return the page whose id matches it; error if none matches.
+ *   - If expectedPageId is omitted and exactly one page is returned, use it.
+ *   - If expectedPageId is omitted and MULTIPLE pages are returned, refuse to guess and return
+ *     an error listing the page names so the operator can set FB_PAGE_ID and retry.
  *
  * Returns { ok:true, pageId, pageName, pageToken } on success.
- * Returns { ok:false, error } on empty data, Graph error, or network failure — never throws.
+ * Returns { ok:false, error } on empty data, ambiguous selection, Graph error, or network
+ * failure — never throws.
  *
  * T-1-EXPOSE: userToken and pageToken are NEVER logged.
  */
-export async function getPageAccessToken(userToken: string): Promise<GetPageTokenResult> {
+export async function getPageAccessToken(
+  userToken: string,
+  expectedPageId?: string,
+): Promise<GetPageTokenResult> {
   // T-1-EXPOSE: user token encoded in URL params but never logged
   const params = new URLSearchParams({ access_token: userToken })
   const url = `https://graph.facebook.com/v22.0/me/accounts?${params.toString()}`
@@ -226,12 +237,38 @@ export async function getPageAccessToken(userToken: string): Promise<GetPageToke
       }
     }
 
-    const firstPage = data.data[0] as Record<string, unknown>
+    const allPages = data.data as Record<string, unknown>[]
+
+    // Select the intended page rather than blindly taking the first one.
+    let selected: Record<string, unknown>
+    if (expectedPageId !== undefined) {
+      const match = allPages.find((p) => p.id === expectedPageId)
+      if (!match) {
+        return {
+          ok: false,
+          error: `Configured FB_PAGE_ID "${expectedPageId}" is not among the Pages this account administers.`,
+        }
+      }
+      selected = match
+    } else if (allPages.length > 1) {
+      // Ambiguous: refuse to guess which page to connect (avoids silently connecting the wrong one).
+      const names = allPages
+        .map((p) => (typeof p.name === 'string' ? p.name : '?'))
+        .join(', ')
+      return {
+        ok: false,
+        error:
+          `This account administers multiple Pages (${names}). ` +
+          `Set FB_PAGE_ID in backend/.env to the id of the Page to connect, then retry.`,
+      }
+    } else {
+      selected = allPages[0]
+    }
 
     if (
-      typeof firstPage.id !== 'string' ||
-      typeof firstPage.name !== 'string' ||
-      typeof firstPage.access_token !== 'string'
+      typeof selected.id !== 'string' ||
+      typeof selected.name !== 'string' ||
+      typeof selected.access_token !== 'string'
     ) {
       return {
         ok: false,
@@ -242,9 +279,9 @@ export async function getPageAccessToken(userToken: string): Promise<GetPageToke
     // T-1-EXPOSE: page token never logged
     return {
       ok: true,
-      pageId: firstPage.id,
-      pageName: firstPage.name,
-      pageToken: firstPage.access_token,
+      pageId: selected.id,
+      pageName: selected.name,
+      pageToken: selected.access_token,
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
