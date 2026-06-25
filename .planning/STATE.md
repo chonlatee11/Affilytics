@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-03-PLAN.md (normalizer + messaging protocol)
-last_updated: "2026-06-25T14:33:36.135Z"
+stopped_at: 02-05 Tasks 1+2 done — Task 3 PENDING human round-trip checkpoint (live Shopee page)
+last_updated: "2026-06-25T14:40:00Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 8
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 02 (product-capture-shopee) — EXECUTING
-Plan: 4 of 5 (Tasks 1+2 done, Task 3 PENDING human checkpoint)
+Plan: 5 of 5 (Tasks 1+2 done, Task 3 PENDING human checkpoint — blocking)
 Status: Ready to execute
 Last activity: 2026-06-25
 
@@ -79,6 +79,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase ?]: t.Optional(t.Nullable()) TypeBox pattern allows field omission and explicit null for CAP-03
 - [Phase ?]: RawProduct.name is string|null (parser nullable); CapturePayload.name is string (backend requires non-null)
 - [Phase ?]: parseCount Thai suffix map: ล้าน/แสน/หมื่น/พัน ordered longest-first to prevent partial replace bugs
+- [02-05]: Popup state machine: innerHTML for static skeleton only, element.value for all product data (XSS mitigation T-02-POPUP-1)
+- [02-05]: showOffline() uses DOM mutation (banner insert) not full re-render to preserve form values exactly (D-08)
+- [02-05]: Background SW import path: wxt/utils/define-background (consistent with wxt/utils/define-content-script from 02-04)
 
 ### Pending Todos
 
@@ -101,6 +104,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-25T14:33:36.120Z
-Stopped at: Completed 02-03-PLAN.md (normalizer + messaging protocol)
+Last session: 2026-06-25T14:40:00Z
+Stopped at: 02-05 Tasks 1+2 committed (background.ts + popup 5-state UI); Task 3 human checkpoint blocking
 Resume file: None
