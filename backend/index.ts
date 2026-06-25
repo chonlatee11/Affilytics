@@ -35,6 +35,7 @@ requireEncryptionKey()
 const { healthRoutes } = await import('./src/routes/health')
 const { settingsRoutes } = await import('./src/routes/settings')
 const { fbOauthRoutes } = await import('./src/routes/fbOauth')
+const { productsRoutes } = await import('./src/routes/products')
 
 // PORT is configurable via the documented PORT env var (.env.example), defaulting to 3000.
 // WR-01: resolvePort() validates the value and fails fast on empty-string/NaN/out-of-range,
@@ -72,6 +73,7 @@ export const app = new Elysia({
   .use(healthRoutes)
   .use(settingsRoutes)
   .use(fbOauthRoutes)  // SET-01 / Gap 4: OAuth Page-connect flow (Dev Mode)
+  .use(productsRoutes)  // CAP-02/03/04: POST /api/products/capture (D-05 upsert on product_url)
 
 // Seed + listen only when run as the main entry point (bun run index.ts).
 // When imported by tests, this block is skipped — no port bind AND no settings-row write
