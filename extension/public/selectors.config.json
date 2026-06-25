@@ -1,0 +1,13 @@
+{
+  "_comment": "ASSUMED selectors — LOW confidence. Must be verified against a live shopee.co.th product page before first use. See 02-01-PLAN.md Task 3.",
+  "shopee": {
+    "name": "[data-sqe='name'] h1, .product-briefing h1",
+    "price": ".product-price .price, ._3_ISdg",
+    "priceRange": ".product-price .range-price",
+    "discountBadge": ".discount-badge, ._3EVKSI",
+    "rating": ".shopee-rating-stars .rating, [class*='rating-stars']",
+    "reviewCount": "[class*='rating-count'], ._3Oj5_n",
+    "salesCount": "[class*='sold'], [class*='rating-sold']",
+    "shop": ".seller-name__text, [class*='shop-name']"
+  }
+}

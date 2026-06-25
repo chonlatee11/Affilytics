@@ -1,0 +1,3 @@
+[test]
+# Preload happy-dom global registrator so parsers.test.ts has access to DOMParser/Document
+preload = ["./test-setup.ts"]
