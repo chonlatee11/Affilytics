@@ -23,20 +23,23 @@ import swagger from '@elysiajs/swagger'
 
 // Step 1: Fail fast if BUN_ENCRYPTION_KEY is missing (D-03, T-1-KEY)
 // This MUST be the first runtime call — before any DB or crypto operations.
+//
+// IMPORTANT: the db/seed/route modules below are loaded via dynamic `await import()`, NOT
+// static `import`. Static imports are hoisted and evaluated BEFORE this statement runs, so a
+// static `import { db } from './src/db/client'` would open the SQLite file and run migrations
+// before the key check — defeating the documented "key-first" ordering (T-1-KEY/D-03).
+// Deferring those imports until after requireEncryptionKey() preserves the invariant.
 requireEncryptionKey()
 
-// Step 2: Import db singleton (opening it runs PRAGMAs + applies migrations via openDatabase())
-// Migrations are applied inside openDatabase() — single source of truth; no second migrate() call here (WR-01 resolved).
-import { db } from './src/db/client'
-
-// Step 3: Idempotent default settings seed
-import { seedDefaultSettings } from './seed'
+// Step 2: Idempotent default settings seed (importing seed → client opens the DB singleton
+// with PRAGMAs + migrations — now guaranteed to happen AFTER the key check above)
+const { seedDefaultSettings } = await import('./seed')
 await seedDefaultSettings()
 
 // Steps 4-6: Create Elysia app bound to 127.0.0.1 (Pitfall 4: never 0.0.0.0)
-import { healthRoutes } from './src/routes/health'
-import { settingsRoutes } from './src/routes/settings'
-import { fbOauthRoutes } from './src/routes/fbOauth'
+const { healthRoutes } = await import('./src/routes/health')
+const { settingsRoutes } = await import('./src/routes/settings')
+const { fbOauthRoutes } = await import('./src/routes/fbOauth')
 
 // PORT is configurable via the documented PORT env var (.env.example), defaulting to 3000.
 // WR-01: resolvePort() validates the value and fails fast on empty-string/NaN/out-of-range,

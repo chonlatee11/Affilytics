@@ -17,9 +17,15 @@ import { drizzle, BunSQLiteDatabase } from 'drizzle-orm/bun-sqlite'
 import * as schema from './schema'
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator'
 import { mkdirSync, unlinkSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
+
+// Absolute path to the committed migrations folder (backend/drizzle), derived from this
+// module's location (backend/src/db) so migrate() never depends on process.cwd(). Launching
+// the server from any directory other than backend/ previously made migrate() fail to find
+// drizzle/meta/_journal.json and crash at boot.
+const MIGRATIONS_FOLDER = join(import.meta.dir, '..', '..', 'drizzle')
 
 export type AppDatabase = BunSQLiteDatabase<typeof schema>
 
@@ -88,7 +94,7 @@ export function openDatabase(path?: string): AppDatabase {
   // Only run migrations for non-memory DBs (file-based) to avoid drizzle-kit journal
   // issues; in-memory DBs used by tests run migrations too (needed for schema tests).
   try {
-    migrate(db, { migrationsFolder: './drizzle' })
+    migrate(db, { migrationsFolder: MIGRATIONS_FOLDER })
   } catch (err) {
     // Now that drizzle/ is committed, a migration failure on a real file-based DB is
     // a genuine boot-time schema error and MUST be loud (WR-02): swallowing it would
