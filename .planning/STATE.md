@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 02-01 Task 3: awaiting human selector verification"
-last_updated: "2026-06-25T14:39:43Z"
-last_activity: "2026-06-25 -- Phase 02-01 Tasks 1+2 done; stopped at Task 3 checkpoint"
+stopped_at: Completed 02-02-PLAN.md (capture endpoint + upsert)
+last_updated: "2026-06-25T14:21:35.779Z"
+last_activity: 2026-06-25
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 10
-  completed_plans: 5
+  completed_plans: 7
   percent: 13
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 02 (product-capture-shopee) — EXECUTING
-Plan: 1 of 5 (Tasks 1+2 done, Task 3 PENDING human checkpoint)
-Status: Paused at Task 3 — human selector verification required
-Last activity: 2026-06-25 -- Phase 02-01 Tasks 1+2 executed and committed
+Plan: 2 of 5 (Tasks 1+2 done, Task 3 PENDING human checkpoint)
+Status: Ready to execute
+Last activity: 2026-06-25
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100%
 | Phase 01-backend-foundation P02 | 18 | 3 tasks | 8 files |
 | Phase 01-backend-foundation P01-05 | 35 minutes | 4 tasks | 8 files |
 | Phase 02-product-capture-shopee P01 | ~45 minutes | 2/3 tasks | 17 files |
+| Phase 02-product-capture-shopee P02 | 20 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [01-05]: Dev-Mode OAuth ships Phase 1; Meta App Review for pages_manage_posts stays Phase 5 deliverable
 - [02-01]: selectors.config.json in extension/public/ (not parsers/) — WXT mandates public/ for runtime.getURL(); CLAUDE.md note is approximate
 - [02-01]: happy-dom v20 has no GlobalRegistrator; use Window instance + assign DOMParser to globalThis for bun test (W1)
+- [Phase ?]: sql excluded.* in onConflictDoUpdate set are column identifiers, not user input — structurally injection-safe
+- [Phase ?]: t.Optional(t.Nullable()) TypeBox pattern allows field omission and explicit null for CAP-03
 
 ### Pending Todos
 
@@ -96,6 +99,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-25T14:39:43Z
-Stopped at: "Phase 02-01 Task 3 — human selector verification checkpoint"
-Resume file: .planning/phases/02-product-capture-shopee/02-01-SUMMARY.md
+Last session: 2026-06-25T14:21:35.763Z
+Stopped at: Completed 02-02-PLAN.md (capture endpoint + upsert)
+Resume file: None

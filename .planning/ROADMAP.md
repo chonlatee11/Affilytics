@@ -76,11 +76,11 @@ Notes: Content script MUST NOT fetch localhost directly (mixed-content block) �
 Plans:
 **Wave 0** *(prerequisites)*
 
-- [ ] 02-01-PLAN.md — WXT scaffold + RED test scaffolds + live Shopee selector verification (research flag)
+- [x] 02-01-PLAN.md — WXT scaffold + RED test scaffolds + live Shopee selector verification (research flag)
 
 **Wave 1** *(parallel: backend + extension utils)*
 
-- [ ] 02-02-PLAN.md — backend capture endpoint + UNIQUE(product_url) migration + upsert (CAP-02/03/04)
+- [x] 02-02-PLAN.md — backend capture endpoint + UNIQUE(product_url) migration + upsert (CAP-02/03/04)
 - [ ] 02-03-PLAN.md — D-09 normalizer + typed @webext-core messaging protocol (CAP-01)
 
 **Wave 2** *(blocked on Wave 1)*
@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 5/5 | Complete   | 2026-06-24 |
-| 2. Product Capture (Shopee) | 0/TBD | Not started | - |
+| 2. Product Capture (Shopee) | 2/5 | In Progress|  |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |
 | 5. Captions & Approval | 0/TBD | Not started | - |
