@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-02-PLAN.md (capture endpoint + upsert)
-last_updated: "2026-06-25T14:21:35.779Z"
+stopped_at: Completed 02-03-PLAN.md (normalizer + messaging protocol)
+last_updated: "2026-06-25T14:26:27.461Z"
 last_activity: 2026-06-25
 progress:
   total_phases: 8
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 13
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-06-23)
 ## Current Position
 
 Phase: 02 (product-capture-shopee) — EXECUTING
-Plan: 2 of 5 (Tasks 1+2 done, Task 3 PENDING human checkpoint)
+Plan: 3 of 5 (Tasks 1+2 done, Task 3 PENDING human checkpoint)
 Status: Ready to execute
 Last activity: 2026-06-25
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -77,6 +77,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [02-01]: happy-dom v20 has no GlobalRegistrator; use Window instance + assign DOMParser to globalThis for bun test (W1)
 - [Phase ?]: sql excluded.* in onConflictDoUpdate set are column identifiers, not user input — structurally injection-safe
 - [Phase ?]: t.Optional(t.Nullable()) TypeBox pattern allows field omission and explicit null for CAP-03
+- [Phase ?]: RawProduct.name is string|null (parser nullable); CapturePayload.name is string (backend requires non-null)
+- [Phase ?]: parseCount Thai suffix map: ล้าน/แสน/หมื่น/พัน ordered longest-first to prevent partial replace bugs
 
 ### Pending Todos
 
@@ -99,6 +101,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-06-25T14:21:35.763Z
-Stopped at: Completed 02-02-PLAN.md (capture endpoint + upsert)
+Last session: 2026-06-25T14:26:27.445Z
+Stopped at: Completed 02-03-PLAN.md (normalizer + messaging protocol)
 Resume file: None

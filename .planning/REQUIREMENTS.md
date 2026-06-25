@@ -15,7 +15,7 @@ Requirements for the MVP (US-1..US-6 + foundation). Each maps to a roadmap phase
 
 ### Capture
 
-- [ ] **CAP-01**: Operator can capture product data (name, price, discount %, rating, review count, sales count, shop, product URL) from an open Shopee page with one click in the extension *(FR-M1-1)*
+- [x] **CAP-01**: Operator can capture product data (name, price, discount %, rating, review count, sales count, shop, product URL) from an open Shopee page with one click in the extension *(FR-M1-1)*
 - [x] **CAP-02**: Captured data is sent to the localhost backend and persisted *(FR-M1-2)*
 - [x] **CAP-03**: Fields that cannot be read are left empty for later manual entry without failing the whole capture *(FR-M1-3)*
 - [x] **CAP-04**: Operator can paste a product URL to create a basic product record as a fallback *(FR-M1-4)*
@@ -117,7 +117,7 @@ Phase mapping is finalized by the roadmapper. Initial proposed mapping:
 | FOUND-02 | Phase 1 | Complete |
 | FOUND-03 | Phase 1 | Complete |
 | SET-01 | Phase 1 | Complete |
-| CAP-01 | Phase 2 | Pending |
+| CAP-01 | Phase 2 | Complete |
 | CAP-02 | Phase 2 | Complete |
 | CAP-03 | Phase 2 | Complete |
 | CAP-04 | Phase 2 | Complete |

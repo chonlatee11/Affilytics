@@ -81,7 +81,7 @@ Plans:
 **Wave 1** *(parallel: backend + extension utils)*
 
 - [x] 02-02-PLAN.md — backend capture endpoint + UNIQUE(product_url) migration + upsert (CAP-02/03/04)
-- [ ] 02-03-PLAN.md — D-09 normalizer + typed @webext-core messaging protocol (CAP-01)
+- [x] 02-03-PLAN.md — D-09 normalizer + typed @webext-core messaging protocol (CAP-01)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -223,7 +223,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Backend Foundation | 5/5 | Complete   | 2026-06-24 |
-| 2. Product Capture (Shopee) | 2/5 | In Progress|  |
+| 2. Product Capture (Shopee) | 3/5 | In Progress|  |
 | 3. Scoring, Commission & Links | 0/TBD | Not started | - |
 | 4. Dashboard | 0/TBD | Not started | - |
 | 5. Captions & Approval | 0/TBD | Not started | - |
