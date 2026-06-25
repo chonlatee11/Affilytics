@@ -1,13 +1,19 @@
 {
-  "_comment": "ASSUMED selectors — LOW confidence. Must be verified against a live shopee.co.th product page before first use. See 02-01-PLAN.md Task 3.",
+  "_comment": "Shopee selectors VERIFIED live against a real shopee.co.th product page on 2026-06-25 (Task 3). Shopee is a React SPA with OBFUSCATED class names (e.g. IZPeQz, F9RHbS) that change on every frontend deploy — when capture stops reading a field, re-inspect the live page (DevTools) and update the value here, then reload the extension (Alt+R, no rebuild). 'name' uses the <h1> tag (most stable). Fields marked best-effort below could not be verified (the sample product had no discount/price-range/sold-count, and Shopee's anti-bot wall blocked opening a discounted product); they return null gracefully (CAP-03) until verified on a product that has them.",
+  "_verified": {
+    "date": "2026-06-25",
+    "url": "shopee.co.th product page (Foxconn Earphones)",
+    "verified_fields": ["name", "price", "rating", "reviewCount", "shop"],
+    "best_effort_unverified": ["priceRange", "discountBadge", "salesCount"]
+  },
   "shopee": {
-    "name": "[data-sqe='name'] h1, .product-briefing h1",
-    "price": ".product-price .price, ._3_ISdg",
-    "priceRange": ".product-price .range-price",
-    "discountBadge": ".discount-badge, ._3EVKSI",
-    "rating": ".shopee-rating-stars .rating, [class*='rating-stars']",
-    "reviewCount": "[class*='rating-count'], ._3Oj5_n",
-    "salesCount": "[class*='sold'], [class*='rating-sold']",
-    "shop": ".seller-name__text, [class*='shop-name']"
+    "name": "h1",
+    "price": ".IZPeQz",
+    "priceRange": ".IZPeQz",
+    "discountBadge": "[class*='discount'], [aria-label*='discount']",
+    "rating": ".F9RHbS.dQEiAI.jMXp4d",
+    "reviewCount": ".F9RHbS:not(.dQEiAI)",
+    "salesCount": "[class*='sold'], [class*='sale']",
+    "shop": ".fV3TIn"
   }
 }
